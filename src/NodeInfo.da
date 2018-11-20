@@ -1,0 +1,13 @@
+
+
+def DataNodeInfo:
+    def __init__():
+        self.uid = None
+        self.ip = None
+        self.freeSpace = None
+
+def NameNodeInfo:
+    def __init__():
+        self.ip = None
+        # type: process
+        self.namenode = None

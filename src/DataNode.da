@@ -1,0 +1,102 @@
+
+"""
+Datanode process in HDFS cluster
+"""
+#class DataNode(process):
+class DataNode():
+
+    def __init__():
+        self.nameNode = None
+        # The namespace for which this datanode is storing data
+        # A datanode can only store data for one namespace
+        self.namespaceID = None
+        self.namespaceIDPath = None
+        # Used by namenode to uniquely identify datanodes
+        self.storageID = None
+        self.storageIDPath = None
+        pass
+
+    def setup():
+        pass
+
+    def run():
+        pass
+        
+    def connectToNamenode(namenode):
+        """
+        Performs handshake and verification with namenode.
+        After this passes, this datanode is available for storing data blocks.
+        """
+        pass
+    
+    def getNamespaceId():
+        """
+        Returns the namespace id for which this datanode is storing data
+        """
+        pass
+    
+    def setNamespaceId(id):
+        """
+        Sets the namespace id for which this datanode is storing data.
+        This id is stored persistently on datanode.
+        """
+        pass
+
+    def getStorageId():
+        """
+        Returns the storage id for which this datanode is storing data
+        """
+        pass
+        
+    def setStorageId(id):
+        """
+        Sets the storage id for which this datanode is storing data.
+        This id is stored persistently on datanode.
+        """
+        pass
+        
+    def sendBlockReport():
+        """
+        Sends block report to namenode.
+        Block reports are sent periodically to namenode.
+        Block reports contain list of blocks of files this datanode is storing.
+        """
+        pass
+        
+    def sendHeartBeat():
+        """
+        Sends heartbeat to namenode to signal that this datanode is alive
+        """
+        pass
+
+"""
+Datanode interacts with HDFS Client using DatanodeClient
+"""
+class DatanodeClient:
+    
+    def __init__():
+        pass
+    
+    def readBlock(filepath):
+        """
+        Reads the bytes from the specified file.
+        Also returns the checksum to check for possible corruption
+        """
+        pass
+    
+    def writeBlock(filepath, data):
+        """
+        Writes the data to specified file.
+        Updates access time, modified time and checksum for the accessed block
+        """
+        pass
+    
+    def writeDataPipelined(filepath, data, nextDatanode):
+        """
+        Writes the data in pipelined fashion.
+        Writes the data to local file and also sends the data to next node in the pipeline
+        """
+        pass
+    
+def main():
+    pass

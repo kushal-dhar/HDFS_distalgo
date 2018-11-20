@@ -1,0 +1,32 @@
+"""
+Test the performance and Correctness of HDFS by writing Unit-test cases
+
+"""
+class HFDS_Unit_Test:
+    
+    def __init__():
+       pass
+
+
+    def test_Safety():
+         """
+            Test if the safety condition of the reads and writes is violated or not
+         """
+
+         return is_safe
+
+
+    def test_Throughput():
+        """
+           Test the throughput of the hdfs by sending a series of reads and writes
+        """
+        return req_psec
+
+
+    def test_nodeFailure():
+        """
+            Test if there is data-loss when we fail a random node
+        """
+
+        return is_dataloss
+
