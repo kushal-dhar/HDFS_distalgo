@@ -1,0 +1,97 @@
+'''
+from Block import BlockInfo
+from DataNode import DataNode
+'''
+
+
+"""
+Namenode process in HDFS cluster
+"""
+#class NameNode(process):
+class NameNode():
+
+    def __init__():
+        self.datanodes = None
+        # dict: filename -> Inode
+        self.inodes = None
+        # dict: filename -> BlockInfo
+        self.blockinfo = None
+        pass
+
+    def setup():
+        pass
+
+    def run():
+        pass
+    
+    def nominateDataNodes(filename, count=3):
+        """
+        Nominates `count` datanodes for storing a new block of a file
+        """
+        pass
+    
+    def getDatanodesOfBlock(filename, blockNumber):
+        """
+        Returns the datanodes at which the block `blockNumber` of `filename` is located
+        """
+        pass
+    
+    def getImage():
+        """
+        Returns the current image of namesystem.
+        It containes blockinfo and inode data.
+        """
+        pass
+    
+    def connectDatanode(datanode):
+        """
+        Performs handshake and verification of datanode.
+        After this passes, datanode is available for storing data blocks.
+        """
+        pass
+    
+    def handleBlockReport(datanode, report):
+        """
+        Analyses the block report sent by datanode.
+        Done asynchronously.
+        """
+        pass
+    
+    def handleDatanodeHeartbeat(datanode, heatbeat):
+        """
+        Analyse the heartbeat message sent by datanode.
+        Replies to the heartbeat and sends further instructions.
+        """
+        pass
+        
+    def handleDatanodeDown(datanode):
+        """
+        Takes the necessary steps when a datanode is presumed to be down.
+        Schedules replciation of the blocks which the datanode was storing.
+        """
+        pass
+    
+    def analyseSystemHealth():
+        """
+        Perform analysis of overall health of the system.
+        - schedule replication of under replicated blocks
+        - schedule deletion of over replicated blocks
+        - take action when storage on datanode is running out
+        - do garbage collection
+        """
+        pass
+        
+    def grantLease(client, filename):
+        """
+        Grants lease of `filename` to the client.
+        """
+        pass
+        
+    def handleCorruptedBlock(filename, blockNumber):
+        """
+        Performs the necessary actions when it is notified that a block has been corrupted
+        """
+        pass
+
+def main():
+    pass
