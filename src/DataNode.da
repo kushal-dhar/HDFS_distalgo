@@ -1,26 +1,38 @@
-
+config(clock is lamport)
 """
 Datanode process in HDFS cluster
 """
-#class DataNode(process):
-class DataNode():
-
+class DataNode(process):
+#class DataNode():
+    """
     def __init__():
-        self.nameNode = None
+        nameNode = None
         # The namespace for which this datanode is storing data
         # A datanode can only store data for one namespace
-        self.namespaceID = None
-        self.namespaceIDPath = None
+        namespaceID = None
+        namespaceIDPath = None
         # Used by namenode to uniquely identify datanodes
-        self.storageID = None
-        self.storageIDPath = None
-        pass
+        storageID = None
+        storageIDPath = None
+    """ 
 
     def setup():
         pass
 
     def run():
-        pass
+        #-- helloasd
+        output('waiting term from namenode')
+        await( len(setof(n, received(('x','y',n)))) > 0  )
+        namenodes = setof(n, received(('x','y',n)))
+        output('namenodes: ', namenodes)
+        output('received term from namenode')
+        send(('ack',self), to=namenodes)
+        exit(0)
+        
+    def receive(msg= ('x', 'y')):
+        output('received hello from ')
+        #send('ack', to=sender)
+        
         
     def connectToNamenode(namenode):
         """
@@ -99,4 +111,8 @@ class DatanodeClient:
         pass
     
 def main():
-    pass
+    datanodes = new(DataNode, num=3)
+    for d in datanodes:
+        setup(d, ())
+    start(datanodes)
+    await(received('ack'))

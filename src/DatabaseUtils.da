@@ -1,0 +1,67 @@
+import mysql.connector
+import DatabaseConfig
+import sys
+
+def databaseOperationDecorator(func):
+    #print('wrap', func.__name__)
+    def wrapped(*args, **kwargs):
+        try:
+            #print('decorating ', func.__name__)
+            return func(*args, **kwargs)
+        except:
+            print("database exception in {0} :{1}".format(func.__name__, sys.exc_info()[0]))
+            raise
+    return wrapped;
+    
+@databaseOperationDecorator
+def createDatabase(dbConn, dbName):
+    """
+    Creates a new database if it does not already exists.
+    Assumes that cursor for connection does not have any unhandled output.
+    Args:
+    dbConn (mysql.connector.connection.MySQLConnection): database connection
+    dbName (str): name of databse to be created
+    """
+    dbCursor = dbConn.cursor()
+    dbCursor.execute(DatabaseConfig.SHOW_DATABASES_CMD)
+    dbList = dbCursor.fetchall()
+    if (dbName,) not in dbList:
+        print("command: ", DatabaseConfig.CREATE_DB_CMD.format(dbName))
+        dbCursor.execute(DatabaseConfig.CREATE_DB_CMD.format(dbName))
+        return True
+    return False
+
+@databaseOperationDec
+def dropDatabase(dbConn, dbName):
+    """
+    Drops a database if exists.
+    Assumes that cursor for connection does not have any unhandled output.
+    Args:
+    dbConn (mysql.connector.connection.MySQLConnection): database connection
+    dbName (str): name of databse to be created
+    """
+    dbCursor = dbConn.cursor()
+    dbCursor.execute(DatabaseConfig.SHOW_DATABASES_CMD)
+    dbList = dbCursor.fetchall()
+    if (dbName,) in dbList:
+        print("command: ", DatabaseConfig.DROP_DB_CMD.format(dbName))
+        dbCursor.execute(DatabaseConfig.DROP_DB_CMD.format(dbName))
+        return True
+    return False
+
+@databaseOperationDecorator
+def createTable(dbConn, command):
+    """
+    
+    """
+    dbCursor = dbConn.cursor()
+    dbCursor.execute(DatabaseConfig.USE_DB_CMD)
+    dbCursor.execute(command)
+    # Check if dbCursor.commit() is required
+
+@databaseOperationDecorator
+def insertInTable(dbConn, command):
+    dbCursor = dbConn.cursor()
+    dbCursor.execute(DatabaseConfig.USE_DB_CMD)
+    dbCursor.execute(command)
+    dbConn.commit()
