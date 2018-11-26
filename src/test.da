@@ -1,5 +1,4 @@
-config(clock is lamport)
-import DataNode
+#config(clock is lamport)
 
 
 class proc(process):
@@ -18,21 +17,4 @@ class proc(process):
         #send('ack', to=sender)
 
 def main():
-    
-    datanodes = new(DataNode.DataNode, num=2, at='dn')
-    #datanodes = new(proc, num=2)
-    
-    for d in datanodes:
-        setup(d, args=())
-    
-    #start(datanodes)
-    start(datanodes)
-    send(('helloasd',), to=datanodes)
-    send(('x','y', self), to=datanodes)
-    #send(('terminate'), to=datanodes)
-    
-    await( len(  setof( dn, received( ('ack',dn)  )  )  ) == 2)
-    adn = setof( dn, received( ('ack',dn)  )  ) 
-    output('received acks from: ', adn)
-    output('terminating')
-    
+    send(('start_datanodes',3,'dnode'), to='snode')

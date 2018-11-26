@@ -7,22 +7,26 @@ from DataNode import DataNode
 """
 Namenode process in HDFS cluster
 """
-#class NameNode(process):
-class NameNode():
-
+class NameNode(process):
+#class NameNode():
+    """
     def __init__():
-        self.datanodes = None
+        datanodes = None
         # dict: filename -> Inode
-        self.inodes = None
+        inodes = None
         # dict: filename -> BlockInfo
-        self.blockinfo = None
+        blockinfo = None
         pass
-
+    """
     def setup():
-        pass
+        self.datanodeId2pid = dict()
+        self.pid2datanodeId = dict()
+        self.nextDatanodeId = 1
+
 
     def run():
-        pass
+        output('namenode running: ', self)
+        await(received(('kill')))
     
     def nominateDataNodes(filename, count=3):
         """
@@ -93,5 +97,23 @@ class NameNode():
         """
         pass
 
-def main():
-    pass
+    def receive(msg=('hello')):
+        output('handler: received hello from someone')
+
+    def receive(msg=('add_datanode', datanode, proposedId)):
+        output('received add_datanode: ', datanode)
+        if proposedId is None:
+            pid2datanodeId[datanode] = self.nextDatanodeId
+            datanodeId2pid[self.nextDatanodeId] = datanode
+            self.nextDatanodeId += 1
+        else:
+            oldPid = datanodeId2pid[proposedId]
+            del pid2datanodeId[oldPid]
+            pid2datanodeId[datanode] = proposedId
+            datanodeId2pid[proposedId] = datanode
+
+        send(('datanode_added', pid2datanodeId[datanode]), to=set([datanode]))
+        output('added datanode: ', datanode, ' -> ', pid2datanodeId[datanode])
+
+    def receive(msg=('heartbeat', datanode)):
+        output('received heartbeat from datanode: ', datanode)

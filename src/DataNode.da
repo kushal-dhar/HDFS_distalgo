@@ -1,9 +1,48 @@
-config(clock is lamport)
 """
 Datanode process in HDFS cluster
 """
+
+#NameNode = import_da('NameNode')
+
+import Config
+import os
+import time
+from threading import Thread
+
+'''
+class DataNodeHeartbeat(Thread):
+    def __init__(self, datanode, namenode, interval=Config.DATANODE_HEARTBEAT_INTERVAL):
+        Thread.__init__(self)
+        self.datanode = datanode
+        self.namenode = namenode
+        self.interval = interval
+
+    def run(self):
+        while True:
+            # output('sending heartbeat', self)
+            send(('heartbeat', self.datanode), to=self.namenode)
+            time.sleep(self.interval)
+'''
+
+class DataNodeHeartbeat(process):
+    def setup(datanode, namenode, interval=Config.DATANODE_HEARTBEAT_INTERVAL):
+        pass
+
+    def run():
+        output('start heartbeat process for datanode: ', datanode)
+        while True:
+            # output('sending heartbeat', self)
+            send(('heartbeat', datanode), to=namenode)
+            time.sleep(interval)
+
+    def receive(msg=('kill')):
+        output('received kill')
+        exit(0)
+
 class DataNode(process):
 #class DataNode():
+
+
     """
     def __init__():
         nameNode = None
@@ -16,23 +55,31 @@ class DataNode(process):
         storageIDPath = None
     """ 
 
-    def setup():
-        pass
+    def setup(namenodes, storageDir):
+        # Declare all class variables with self. here to reference them without self throughout
+        self.datanodeId = None
+        self.heartbeatThread = None
 
     def run():
-        #-- helloasd
-        output('waiting term from namenode')
-        await( len(setof(n, received(('x','y',n)))) > 0  )
-        namenodes = setof(n, received(('x','y',n)))
-        output('namenodes: ', namenodes)
-        output('received term from namenode')
-        send(('ack',self), to=namenodes)
+        output('datanode started: ', self)
+        output('supplied namenode: ', namenodes)
+
+        datanodeId = readDatanodeId()
+
+        send(('add_datanode', self, datanodeId), to=namenodes)
+        await(some(received(('datanode_added',_))))
+        output('registered successfully with namenode')
+
+        heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_LOCATION)
+        for hbp in heartbeatProcess:
+            setup(hbp, args=(self, namenodes))
+        start(heartbeatProcess)
+
+
+        await(received(('kill')))
+        output('received kill message')
         exit(0)
-        
-    def receive(msg= ('x', 'y')):
-        output('received hello from ')
-        #send('ack', to=sender)
-        
+
         
     def connectToNamenode(namenode):
         """
@@ -81,6 +128,40 @@ class DataNode(process):
         """
         pass
 
+
+    def readDatanodeId():
+        filepath = os.path.join(storageDir, Config.DATANODE_ID_FILE)
+        if not os.path.isfile(filepath):
+            return None
+        fid = open(filepath, 'r')
+        data = fid.readline()
+        datanodeId = int(data)
+        fid.close()
+        return datanodeId
+
+    def writeDatanodeId():
+        filepath = os.path.join(storageDir, Config.DATANODE_ID_FILE)
+        fid = open(filepath, 'w')
+        # Possible issue: str(None)
+        pid = str(self)
+        output(pid, ' -> ', datanodeId)
+        fid.write(str(datanodeId) + '\n' + pid)
+        fid.close()
+
+    def receive(msg=('datanode_added', proposedId)):
+        if proposedId != datanodeId:
+            datanodeId = proposedId
+            writeDatanodeId()
+
+
+
+    def sendHeartbeat():
+        send(('heartbeat', self), to=namenodes)
+
+    def receive(msg=('kill')):
+        output('handler: received kill message')
+        exit(0)
+
 """
 Datanode interacts with HDFS Client using DatanodeClient
 """
@@ -109,10 +190,3 @@ class DatanodeClient:
         Writes the data to local file and also sends the data to next node in the pipeline
         """
         pass
-    
-def main():
-    datanodes = new(DataNode, num=3)
-    for d in datanodes:
-        setup(d, ())
-    start(datanodes)
-    await(received('ack'))
