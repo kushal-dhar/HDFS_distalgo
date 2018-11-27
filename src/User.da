@@ -1,0 +1,35 @@
+import time
+
+
+"""
+User process in HDFS cluster.
+Users interact with HDFS by sending messages to HDFS Client
+"""
+class User(process):
+
+    def setup(clients):
+        self.msgId = 0
+
+    def run():
+        output('user running: ', self)
+        time.sleep(5)
+        output('sending create file f1 to client')
+        send(('createFile', 'f1'), to=clients)
+        await(some(received(('createFile','f1',_))))
+        result = setof(r, received(('createFile','f1',r)))
+        output('received result of createFile from client: ', result)
+
+        await(received(('kill')))
+
+
+    def receive(msg=('createFile', filename), from_=user):
+        output('received createFile: ', filename)
+        messageId = self.msgId
+        self.msgId += 1
+        send(('createFile', filename, messageId), to=clients)
+
+        await(some(received(('createFile', filename, messageId, _))))
+        result = setof(r, received(('createFile', filename, messageId, r)))
+        for r in result:
+            pass
+        output('received result in user: ', r)

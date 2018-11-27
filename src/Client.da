@@ -1,0 +1,33 @@
+'''
+from Block import BlockInfo
+from DataNode import DataNode
+'''
+
+"""
+Client process in HDFS cluster.
+Users interact with HDFS by sending messages to Client
+"""
+
+
+class Client(process):
+
+    def setup(namenodes):
+        self.msgId = 0
+
+    def run():
+        output('client running: ', self)
+        await(received(('kill')))
+
+
+    def receive(msg=('createFile', filename), from_=user):
+        output('received createFile: ', filename)
+        messageId = self.msgId
+        self.msgId += 1
+        send(('createFile', self, filename, messageId), to=namenodes)
+
+        await(some(received(('createFile', filename, messageId, _))))
+        result = setof(r, received(('createFile', filename, messageId, r)))
+        for r in result:
+            pass
+        output('received result from namenode ', r)
+        send(('createFile', filename, r), to=user)

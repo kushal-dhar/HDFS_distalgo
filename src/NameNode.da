@@ -117,3 +117,8 @@ class NameNode(process):
 
     def receive(msg=('heartbeat', datanode)):
         output('received heartbeat from datanode: ', datanode)
+
+
+    def receive(msg=('createFile', client, filename, messageId)):
+        output('received create file ', filename, ' request from ', client)
+        send(('createFile', filename, messageId, False), to=client)
