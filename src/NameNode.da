@@ -2,6 +2,7 @@
 from Block import BlockInfo
 from DataNode import DataNode
 '''
+import threading
 from FileAttributes import Inode
 
 
@@ -25,6 +26,9 @@ class NameNode(process):
         self.nextDatanodeId = 1
         # dict: filename -> Inode
         self.inodes = dict()
+        self.mapLock = threading.Lock()
+        self.counterLock = threading.Lock()
+        self.locks = [self.mapLock, self.counterLock]
 
 
     def run():
@@ -106,14 +110,18 @@ class NameNode(process):
     def receive(msg=('add_datanode', datanode, proposedId)):
         output('received add_datanode: ', datanode)
         if proposedId is None:
+            acquireLock(counterLock)
             pid2datanodeId[datanode] = self.nextDatanodeId
             datanodeId2pid[self.nextDatanodeId] = datanode
             self.nextDatanodeId += 1
+            releaseLock(counterLock)
         else:
             oldPid = datanodeId2pid[proposedId]
+            acquireLock(mapLock)
             del pid2datanodeId[oldPid]
             pid2datanodeId[datanode] = proposedId
             datanodeId2pid[proposedId] = datanode
+            releaseLock(mapLock)
 
         send(('datanode_added', pid2datanodeId[datanode]), to=set([datanode]))
         output('added datanode: ', datanode, ' -> ', pid2datanodeId[datanode])
@@ -149,3 +157,26 @@ class NameNode(process):
             output('acquired lease for filename: ', filename)
             result = True
         send(('openFile', filename, mode, messageId, result), to=client)
+
+
+    def acquireLock(lockObj):
+        for obj in locks:
+            if obj != lockObj:
+                obj.acquire()
+            else:
+                obj.acquire()
+                break
+        return
+
+    def releaseLock(lockObj):
+        lockFound = False
+        for obj in reversed(locks):
+            if obj != lockObj and not lockFound:
+                continue
+            if obj == lockObj:
+                obj.release()
+                lockFound = True
+            elif lockFound:
+                obj.release()
+        return
+

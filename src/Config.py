@@ -1,7 +1,16 @@
+import os, shutil
 
 DATABASE_NAME = 'hdfs'
 
-PROJECT_DATA_PATH = '/home/light/project_data/datanodes/'
+file_path = os.getcwd()
+file_path += '/datanodes/'
+
+try:
+    shutil.rmtree(file_path)
+except:
+    pass
+
+PROJECT_DATA_PATH = file_path
 
 NAMENODE_LOCATION = 'nnode'
 
