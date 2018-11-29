@@ -1,7 +1,7 @@
 
 DATABASE_NAME = 'hdfs'
 
-PROJECT_DATA_PATH = '/home/droid/project_data/datanodes/'
+PROJECT_DATA_PATH = '/home/light/project_data/datanodes/'
 
 NAMENODE_LOCATION = 'nnode'
 
