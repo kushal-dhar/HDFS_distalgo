@@ -10,6 +10,7 @@ import time
 from threading import Thread
 
 '''
+# send() did not work in Thread. Had to create process for it to work
 class DataNodeHeartbeat(Thread):
     def __init__(self, datanode, namenode, interval=Config.DATANODE_HEARTBEAT_INTERVAL):
         Thread.__init__(self)
@@ -157,6 +158,20 @@ class DataNode(process):
 
     def sendHeartbeat():
         send(('heartbeat', self), to=namenodes)
+
+
+    def receive(msg=('readFile_c2d', client, filename, nbytes, messageId)):
+        output('datanode: received readFile filename={0}, nbytes={1}'.format(filename, nbytes))
+        # TODO : change mode to 'rb'
+        #fid = open(filename, 'r')
+        fid = open(filename, 'rb')
+        # TODO : change to data = fid.read(nbytes)
+        #data = fid.read()
+        data = fid.read(nbytes)
+
+        output('datanode: output of readFile filename={0}, nbytes={1}: data={2}'.format(filename, nbytes, data))
+        send(('readFile_d2c', filename, nbytes, messageId, data), to=client)
+
 
     def receive(msg=('kill')):
         output('handler: received kill message')

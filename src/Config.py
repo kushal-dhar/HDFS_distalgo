@@ -13,3 +13,5 @@ DATANODE_HEARTBEAT_INTERVAL = 60
 CLIENT_LOCATION = 'cnode'
 
 USER_LOCATION = 'unode'
+
+TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'

@@ -1,9 +1,9 @@
 '''
-from Block import BlockInfo
 from DataNode import DataNode
 '''
 from FileAttributes import Inode
-
+from Block import BlockInfo
+import Config
 
 """
 Namenode process in HDFS cluster
@@ -25,6 +25,8 @@ class NameNode(process):
         self.nextDatanodeId = 1
         # dict: filename -> Inode
         self.inodes = dict()
+        # dict: filename -> BlockInfo
+        self.blockinfo = dict()
 
 
     def run():
@@ -134,10 +136,9 @@ class NameNode(process):
 
     def receive(msg=('listFiles', client, messageId)):
         output('received listFiles request from : ', client)
-        files = [filename for filename in inodes]
-        filesStr = ','.join(files)
-        output('list of files: ', filesStr)
-        send(('listFiles', messageId, filesStr), to=client)
+        files = tuple([filename for filename in inodes])
+        output('list of files: ', files)
+        send(('listFiles', messageId, files), to=client)
 
     def receive(msg=('openFile', mode, client, filename, messageId)):
         output('received openFile request from : ', client)
@@ -149,3 +150,12 @@ class NameNode(process):
             output('acquired lease for filename: ', filename)
             result = True
         send(('openFile', filename, mode, messageId, result), to=client)
+
+
+    def receive(msg=('readFile_c2n', client, filename, blockNumber, nbytes, messageId)):
+        output('received readFile request from {0}: filename={1}, blockNumber={2}, nbytes={3}'.format(client, filename, blockNumber, nbytes))
+
+        # TODO: change it to find only datanodes which host the data
+        result = tuple([(item, Config.TEST_FILE_PATH) for item in self.pid2datanodeId.keys()])
+        output('namenode: result of readfile: ', result)
+        send(('readFile_n2c', filename, blockNumber, messageId, result), to=client)

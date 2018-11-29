@@ -7,7 +7,7 @@ from DataNode import DataNode
 Client process in HDFS cluster.
 Users interact with HDFS by sending messages to Client
 """
-
+import Utils
 
 class Client(process):
 
@@ -62,7 +62,32 @@ class Client(process):
         await(some(received(('openFile', _filename, _mode, _messageId ,_))))
         # Reply back to client with the result
         result = setof(r, received(('openFile', _filename, _mode, _messageId ,r)))
-        for r in result:
-            pass
+        r = Utils.getOneFromSet(result)
         output('client: received result of open from namenode for file: ', filename, ' result= ', r)
         send(('openFile', mode, token, filename, r), to=user)
+
+    def receive(msg=('readFile', token, filename, blockNumber, nbytes), from_=user):
+        output('client: received readFile: filename={0}, blockNumber={1}, nbytes={2}, token={3}'.format(filename, blockNumber, nbytes, token))
+        messageId = getNewMessageId()
+        send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
+        await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
+
+        result = setof(r, received(('readFile_n2c', _filename, _blockNumber, _messageId, r)))
+        # r is the list of (datanodes, location of block) which store the block client wants to read
+        r = Utils.getOneFromSet(result)
+
+        output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
+                                                                                                  r))
+        # Client contacts one of datanode for data
+        # TODO - handle case when r in None
+        datanodeToContact = r[0][0]
+        filenameAtDatanode = r[0][1]
+        messageId = getNewMessageId()
+        send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
+
+        await(some(received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, _))))
+        result = setof(r, received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, r) ))
+        read_data = Utils.getOneFromSet(result)
+        output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
+                                                                                                  read_data))
+        send(('readFile', token, filename, blockNumber, nbytes, read_data), to=user)
