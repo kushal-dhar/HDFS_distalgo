@@ -2,6 +2,7 @@
 from Block import BlockInfo
 from DataNode import DataNode
 '''
+from FileAttributes import Inode
 
 
 """
@@ -22,6 +23,8 @@ class NameNode(process):
         self.datanodeId2pid = dict()
         self.pid2datanodeId = dict()
         self.nextDatanodeId = 1
+        # dict: filename -> Inode
+        self.inodes = dict()
 
 
     def run():
@@ -121,4 +124,28 @@ class NameNode(process):
 
     def receive(msg=('createFile', client, filename, messageId)):
         output('received create file ', filename, ' request from ', client)
-        send(('createFile', filename, messageId, False), to=client)
+        if filename in self.inodes:
+            send(('createFile', filename, messageId, False), to=client)
+            return
+        self.inodes[filename] = Inode(filename)
+        #output('sending to client: ', ('createFile', filename, messageId, True))
+        send(('createFile', filename, messageId, True), to=client)
+
+
+    def receive(msg=('listFiles', client, messageId)):
+        output('received listFiles request from : ', client)
+        files = [filename for filename in inodes]
+        filesStr = ','.join(files)
+        output('list of files: ', filesStr)
+        send(('listFiles', messageId, filesStr), to=client)
+
+    def receive(msg=('openFile', mode, client, filename, messageId)):
+        output('received openFile request from : ', client)
+        if filename not in self.inodes:
+            output('file ', filename, ' not present')
+            result = False
+        else:
+            # acquire lease for the file
+            output('acquired lease for filename: ', filename)
+            result = True
+        send(('openFile', filename, mode, messageId, result), to=client)

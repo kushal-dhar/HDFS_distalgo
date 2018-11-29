@@ -16,20 +16,32 @@ class User(process):
         output('sending create file f1 to client')
         send(('createFile', 'f1'), to=clients)
         await(some(received(('createFile','f1',_))))
-        result = setof(r, received(('createFile','f1',r)))
-        output('received result of createFile from client: ', result)
 
+        send(('listFiles'), to=clients)
+        await(some(received(('listFiles', _))))
+
+
+        output('sending create file f2 to client')
+        send(('createFile', 'f2'), to=clients)
+        await(some(received(('createFile', 'f2', _))))
+
+        time.sleep(5)
+
+        send(('listFiles'), to=clients)
+        # won't wait here :)
+        await(some(received(('listFiles', _))))
+
+        send(('openFile','r','token','f1'), to=clients)
+        await(some(received(('openFile', 'r', 'token', 'f1',_))))
+        result = setof(r, received(('openFile', 'r', 'token', 'f1',r)) )
+        output('client: received openfile result: ', result)
         await(received(('kill')))
 
 
-    def receive(msg=('createFile', filename), from_=user):
-        output('received createFile: ', filename)
-        messageId = self.msgId
-        self.msgId += 1
-        send(('createFile', filename, messageId), to=clients)
+    def receive(msg=('createFile', filename, result)):
+        output('user: received createFile result: ', filename, ' = ', result)
 
-        await(some(received(('createFile', filename, messageId, _))))
-        result = setof(r, received(('createFile', filename, messageId, r)))
-        for r in result:
-            pass
-        output('received result in user: ', r)
+
+
+    def receive(msg=('listFiles', files)):
+        output('user: received listFiles result: ', files)

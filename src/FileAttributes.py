@@ -1,15 +1,17 @@
+import time
 
 class Inode:
     """
     Inode stores metadata information about a file.
     Namenode stores Inode corresponding to each file in memory.
     """
-    def __init__():
-        self._filename = None
+    def __init__(self, filename):
+        self._filename = filename
         self._namespace = None
-        self._size = None
-        self._modifiedTime = None
-        self._accessTime = None
+        self._size = 0
+        currentTime = time.clock()
+        self._modifiedTime = currentTime
+        self._accessTime = currentTime
         self._permissions = None
     
     def getFileName():
