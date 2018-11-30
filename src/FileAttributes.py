@@ -76,3 +76,14 @@ class Inode:
         Sets the access permissions for the file
         """
         pass
+
+
+class Lease:
+    """
+    We need to store meta-data about the lease taken by the user on thd file
+    """
+    def __init__(self, filename,leaseType):
+        self.filename  = filename
+        self.leaseType = leaseType
+        self.prevLeaseTS = None
+

@@ -2,7 +2,7 @@
 from DataNode import DataNode
 '''
 import threading
-from FileAttributes import Inode
+from FileAttributes import Inode, Lease
 from Block import BlockInfo
 import Config
 
@@ -24,6 +24,8 @@ class NameNode(process):
         self.datanodeId2pid = dict()
         self.pid2datanodeId = dict()
         self.nextDatanodeId = 1
+        self.file2leasereq = dict()
+        self.file2leaseobj = dict()
         # dict: filename -> Inode
         self.inodes = dict()
 
@@ -96,11 +98,20 @@ class NameNode(process):
         """
         pass
         
-    def grantLease(client, filename):
+    def grantLease(client, req_info):
         """
         Grants lease of `filename` to the client.
         """
-        pass
+
+        if(req_info[0] not in self.file2leaseobj):
+             leaseObj = Lease(req_info[0],req_info[1])
+             self.file2leaseobj[req_info[0]] =  leaseObj
+        else:
+            leaseObj = self.file2leaseobj[req_info[0]]
+            leaseObj.leaseType = req_info[1]
+        output("Lease acquired")
+        send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)
+
         
     def handleCorruptedBlock(filename, blockNumber):
         """
@@ -146,9 +157,10 @@ class NameNode(process):
 
     def receive(msg=('listFiles', client, messageId)):
         output('received listFiles request from : ', client)
-        files = tuple([filename for filename in inodes])
-        output('list of files: ', files)
-        send(('listFiles', messageId, files), to=client)
+        files = [filename for filename in inodes]
+        filesStr = ','.join(files)
+        output('list of files: ', filesStr)
+        send(('listFiles', messageId, filesStr), to=client)
 
     def receive(msg=('openFile', mode, client, filename, messageId)):
         output('received openFile request from : ', client)
@@ -156,6 +168,17 @@ class NameNode(process):
             output('file ', filename, ' not present')
             result = False
         else:
+            req_info = (filename, mode, messageId)
+            if(mode  == Config.R_LEASE):
+                grantLease(client, req_info)
+            else:
+                if(filename in self.file2leasereq and len(file2leasereq[filename]) > 0):
+                   self. file2leasereq[filename].append(req_info)
+                   return
+                else:
+                    self.file2leasereq[filename] = []
+                    self.file2leasereq[filename].append(req_info)
+                    grantLease(client, req_info)
             # acquire lease for the file
             output('acquired lease for filename: ', filename)
             result = True
@@ -170,6 +193,22 @@ class NameNode(process):
         result = tuple([(item, Config.TEST_FILE_PATH) for item in self.pid2datanodeId.keys()])
         output('namenode: result of readfile: ', result)
         send(('readFile_n2c', filename, blockNumber, messageId, result), to=client)
+
+
+    def receive(msg=('closeFile', mode, client, filename, messageId)):
+        output('received closeFile request from : ', client)
+        if (mode == Config.R_LEASE):
+            send(('closeFile', filename, mode, messageId, True), to=client)
+        else:
+            self.file2leasereq[filename].pop(0)
+            req_info =  self.file2leasereq[filename][0]
+            output("closeFile args: ",filename, mode, messageId)
+            send(('closeFile', filename, mode, messageId, True), to=client)
+            grantLease(client,req_info)
+            output("Closed File")
+            """
+            TO-DO : Add the timestamp for latest lease
+            """
 
     def acquireLock(lockObj):
         for obj in locks:

@@ -1,4 +1,5 @@
 import time
+import Config
 
 
 """
@@ -32,15 +33,17 @@ class User(process):
         # won't wait here :)
         await(some(received(('listFiles', _))))
 
-        send(('openFile','r','token','f1'), to=clients)
-        await(some(received(('openFile', 'r', 'token', 'f1',_))))
-        result = setof(r, received(('openFile', 'r', 'token', 'f1',r)) )
-        output('client: received openfile result: ', result)
+        send(('openFile', Config.W_LEASE,'token', 'f1'), to=clients)
+        send(('openFile', Config.W_LEASE, 'token1', 'f1'), to=clients)
+        send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
+        await(some(received(('openFile', Config.W_LEASE, 'token', 'f1', _))))
+        await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
+        await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
 
-        send(('openFile', 'r', 'token2', 'f2'), to=clients)
-        await(some(received(('openFile', 'r', 'token2', 'f2', _))))
-        result = setof(r, received(('openFile', 'r', 'token2', 'f2', r)))
-        output('client: received openfile result: ', result)
+        #send(('openFile', 'r', 'token2', 'f2'), to=clients)
+        #await(some(received(('openFile', 'r', 'token2', 'f2', _))))
+        #result = setof(r, received(('openFile', 'r', 'token2', 'f2', r)))
+        #output('client: received openfile result: ', result)
 
 
 

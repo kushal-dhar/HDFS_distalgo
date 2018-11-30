@@ -25,3 +25,6 @@ USER_LOCATION = 'unode'
 
 
 TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'
+
+R_LEASE = 0
+W_LEASE = 1
