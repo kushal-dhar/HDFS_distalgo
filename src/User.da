@@ -10,6 +10,11 @@ class User(process):
     def setup(clients):
         self.msgId = 0
 
+    def delay():
+        for _ in range(50000000):
+            pass
+        time.sleep(10)
+
     def run():
         output('user running: ', self)
         time.sleep(5)
@@ -26,7 +31,7 @@ class User(process):
         send(('createFile', 'f2'), to=clients)
         await(some(received(('createFile', 'f2', _))))
 
-        time.sleep(5)
+        #time.sleep(5)
 
         send(('listFiles'), to=clients)
         # won't wait here :)
@@ -45,11 +50,22 @@ class User(process):
 
 
 
+        send(('appendFile', 'token3', 'f2', 'hello append!!\n'), to=clients)
+        await(some(received(('appendFile', 'token3', 'f2', _))))
+        delay()
+        send(('appendFile', 'token4', 'f1', 'Hello HDFS. An awesome tool to store data in equal sized blocks :)'), to=clients)
+        await(some(received(('appendFile', 'token4', 'f1', _))))
+        result = setof(r, received(('appendFile', 'token4', 'f1', r)))
+        output('user: received appendFile result: ', result)
+
+
+
         output('user: read file')
-        send(('readFile', 'token2', 'filename', 1, 15), to=clients)
-        await(some(received(('readFile', 'token2', 'filename', 1, 15, _))))
-        result = setof(r, received(('readFile', 'token2', 'filename', 1, 15, r)))
-        output('client: received readfile result: ', result)
+        send(('readFile', 'token2', 'f1', 0, 16), to=clients)
+        output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 16))
+        await(some(received(('readFile', 'token2', 'f1', 0, 16, _))))
+        result = setof(r, received(('readFile', 'token2', 'f1', 0, 16, r)))
+        output('user: received readfile result: ', result)
 
         await(received(('kill')))
 

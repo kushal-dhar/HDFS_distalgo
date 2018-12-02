@@ -23,7 +23,7 @@ def main():
 
     # Start datanodes
     datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
-
+    output("project data path= ", Config.PROJECT_DATA_PATH)
     count = 1
     for datanode in datanodes:
         storageDir = os.path.join(Config.PROJECT_DATA_PATH, str(count))
