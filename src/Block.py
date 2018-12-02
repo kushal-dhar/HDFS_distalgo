@@ -1,55 +1,113 @@
 
-
+import Config
+import time
 """
 BlockInfo stores information about physical location of blocks in a file
 """
 class BlockInfo:
-    def __init__():
+    def __init__(self, mfilename, minode):
         self.numBlocks = 0
-        self.dataBlocks = None # list of DataBlocks
-        self.filename = None
-        self.inode = None
-    
-    def getBlockInfo(blockNumber):
+        self.dataBlocks = [] # list of DataBlocks
+        self.filename = mfilename
+        self.inode = minode
+
+    def __str__(self):
+        dataBlockInfo = '\n'.join([str(d) for d in self.dataBlocks])
+        info = "filename={0}, numBlocks={1}, dataBlocks={2}".format(self.filename, self.numBlocks, dataBlockInfo)
+        return info
+
+    def getBlockInfo(self, blockNumber):
         """
         Returns the list of datanodes and path at which block `blockNumber` of the file is located
         """
         pass
     
-    def addBlock(blockNumber, information):
+    def addBlock(self, blockNumber, information):
         """
         Adds a new block of file to the metadata
         """
         pass
     
-    def addNodeToBlock(blockNumber, datanode):
+    def addNodeToBlock(self, blockNumber, datanode):
         """
         Adds `datanode` as list of possible datanodes at which block `blockNumber` is located
         """
         pass
     
-    def removeNodeFromBlock(blockNumber, datanode):
+    def removeNodeFromBlock(self, blockNumber, datanode):
         """
         Removes `datanode` from list of possible datanodes at which block `blockNumber` is located
         """
         pass
 
+
+    def getLastBlockSize(self):
+        if len(self.dataBlocks) == 0:
+            # Means that no blocks are written to file yet
+            return None
+        return self.dataBlocks[-1].getBlockSize()
+
+    def getLastBlockNumber(self):
+        return len(self.dataBlocks) - 1
+
+    def getNewAppendInfo(self):
+        """
+        Returns blocknumber and number of bytes which can be appended to last block
+        :return:
+        """
+        if len(self.dataBlocks) == 0:
+            return (0, Config.BLOCK_SIZE, True)
+        blockNumber = self.getLastBlockNumber()
+        bytesToWrite = Config.BLOCK_SIZE - self.getLastBlockSize()
+        result = False
+        if bytesToWrite <= 0:
+            blockNumber += 1
+            bytesToWrite = Config.BLOCK_SIZE
+            result = True
+        return (blockNumber, bytesToWrite, result)
+
+
+    def addAppendInfo(self, blockNumber, bytesWritten, datanodeId):
+        while blockNumber >= len(self.dataBlocks):
+            bnum = len(self.dataBlocks)
+            bpath = self.filename + '.block.' + str(bnum)
+            self.dataBlocks.append(DataBlock(bnum, bpath))
+        self.dataBlocks[blockNumber].addAppendInfo(bytesWritten, datanodeId)
+        self.numBlocks = len(self.dataBlocks)
+
+    def getLastBlockDatanodeIds(self):
+        if len(self.dataBlocks) == 0:
+            return ()
+        return self.dataBlocks[-1].getDatanodeIds()
+
+    def getDatanodeIdsForBlock(self, blockNumber):
+        # TODO - Check Index out of bounds error
+        return self.dataBlocks[blockNumber].getDatanodeIds()
+
+    def getNumberOfBlocks(self):
+        return len(self.dataBlocks)
+
+
 """
 Databock information storing object
 """
 class DataBlock:
-    def __init__():
-        self._nodeID = None
-        self._datanode = None
-        self._filename = None
-        self._blockNumber = None
-        self._storePath = None
-        self._checksumPath = None
-        self._metadata = None
-        self._checksum = None
-        self._accessTime = None
-        self._modifiedTime = None
-    
+    def __init__(self, mblockNumber, mblockPath, mblockSize=0):
+        self.blockNumber = mblockNumber
+        self.blockPath = mblockPath
+        self.blockSize = mblockSize
+        self.datanodeSizeInfo = dict()
+        self.checksumPath = mblockPath + Config.CHECKSUM_SUFFIX
+        self.metadata = None
+        self.checksum = None
+        self.accessTime = None
+        self.modifiedTime = None
+        self.nodeID = None
+
+    def __str__(self):
+        info = "blockNumber={0}, blockSize={1}, datanodeIndo={2}".format(self.blockNumber, self.blockSize, self.datanodeSizeInfo)
+        return info
+
     def getNode():
         """
         Returns the datanode where the block is stored
@@ -145,3 +203,17 @@ class DataBlock:
         Sets the last access time of the block
         """
         pass
+
+    def getBlockSize(self):
+        return self.blockSize
+
+    def addAppendInfo(self, bytesWritten, datanodeId):
+        if datanodeId not in self.datanodeSizeInfo:
+            self.datanodeSizeInfo[datanodeId] = bytesWritten
+        else:
+            self.datanodeSizeInfo[datanodeId] += bytesWritten
+        self.blockSize = max(self.blockSize, self.datanodeSizeInfo[datanodeId])
+
+    def getDatanodeIds(self):
+        ids = tuple([d for d in self.datanodeSizeInfo.keys()])
+        return ids

@@ -145,16 +145,25 @@ class Client(process):
         send(('closeFile', mode, token, filename, r), to=user)
 
 
-    def receive(msg=('readFile', token, filename, blockNumber, nbytes), from_=user):
-        output('client: received readFile: filename={0}, blockNumber={1}, nbytes={2}, token={3}'.format(filename, blockNumber, nbytes, token))
+    def receive(msg=('readFile', token, filename, mblockNumber, nbytes), from_=user):
+        output('client: received readFile: filename={0}, blockNumber={1}, nbytes={2}, token={3}'.format(filename, mblockNumber, nbytes, token))
+        # TODO: get file size before reading, or ask for number of blocks from namenode
+        bytes_read = 0
+        blockNumber = 0
+        data = b''
         messageId = getNewMessageId()
-        send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
-        await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
+        send(('numBlocksInFile', filename, messageId), to=namenodes)
+        await(some(received(('numBlocksInFile', _filename, _messageId, _))))
+        result = setof(r, received( ('numBlocksInFile', _filename, _messageId, r) ))
+        total_blocks = Utils.getOneFromSet(result)
+        output("client: number of blocks in file={0} = {1}".format(filename, total_blocks))
 
-        result = setof(r, received(('readFile_n2c', _filename, _blockNumber, _messageId, r)))
-        # r is the list of (datanodes, location of block) which store the block client wants to read
-        r = Utils.getOneFromSet(result)
+        while bytes_read < nbytes and blockNumber < total_blocks:
+            messageId = getNewMessageId()
+            send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
+            await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
 
+'''
         output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,r))
         # Client contacts one of datanode for data
         # TODO - handle case when r in None
@@ -169,6 +178,62 @@ class Client(process):
         output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
                                                                                                   read_data))
         send(('readFile', token, filename, blockNumber, nbytes, read_data), to=user)
+'''
+            result = setof(r, received(('readFile_n2c', _filename, _blockNumber, _messageId, r)))
+            # r is the list of (datanodes, location of block) which store the block client wants to read
+            r = Utils.getOneFromSet(result)
+
+            output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
+                                                                                                      r))
+            # Client contacts one of datanode for data
+            # TODO - handle case when r in None
+            datanodeToContact = r[1][0]
+            filenameAtDatanode = r[0]
+            messageId = getNewMessageId()
+            send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
+
+            await(some(received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, _))))
+            result = setof(r, received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, r) ))
+            read_data = Utils.getOneFromSet(result)
+            data += read_data
+            bytes_read += len(read_data)
+            blockNumber += 1
+            output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
+                                                                                                      read_data))
+        data = data[:nbytes]
+        output("client: read all data: ", data)
+        output("client: sending= ", ('readFile', token, filename, mblockNumber, nbytes, data))
+        send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
+
+
+    def receive(msg=('appendFile', token, filename, data), from_=user):
+        output('client: received appendFile: filename={0}, token={1}, data={2}'.format(filename, token, data))
+        dataWriteIndex = 0
+        while dataWriteIndex < len(data):
+            messageId = getNewMessageId()
+            send(('appendFile_c2n', self, filename, messageId), to=namenodes)
+            await(some(received(('appendFile_n2c', _filename, _messageId, _,))))
+            result = setof(r, received(('appendFile_n2c', _filename, _messageId, r)))
+            datanodes_to_write, blockName, blockSize, blockNumber = Utils.getOneFromSet(result)
+            output("client: received nominated datanodes for filename={0}: {1}, blockName={2}, nbytes={3}".format(filename, datanodes_to_write, blockName, blockSize))
+            messageIdList = []
+            messageIdDict = dict()
+            for d in datanodes_to_write:
+                messageIdList.append(getNewMessageId())
+                messageIdDict[d] = messageIdList[-1]
+            # TODO - do setup/handshake with all datanodes before writing!!!
+            messageIdTuple = tuple(messageIdList)
+            dataWriteEndIndex = min(dataWriteIndex + blockSize, len(data))
+            dataPacket = data[dataWriteIndex:dataWriteEndIndex]
+            dataWriteIndex = dataWriteEndIndex
+            send(('appendFile_c2d', filename, blockName, blockNumber, dataPacket, datanodes_to_write, messageIdTuple, 0, self), to=datanodes_to_write[0])
+            # TODO - await for all datanodes to finish. Then notify user
+            for d in datanodes_to_write:
+                await( received(('appendFile_d2c', messageIdDict[d])))
+            #await(each d in datanodes_to_write, has= received(('appendFile_d2c', messageIdDict[d])))
+            output("client: append packet={0} complete".format(dataPacket))
+        output('appendFile complete!!')
+        send(('appendFile', token, filename, True), to=user)
 
 
     def receive(msg=('deleteFile', filename), from_=user):
@@ -181,4 +246,3 @@ class Client(process):
             pass
         output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
         send(('deleteFile', filename), to=user)
-

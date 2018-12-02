@@ -164,13 +164,32 @@ class DataNode(process):
         output('datanode: received readFile filename={0}, nbytes={1}'.format(filename, nbytes))
         # TODO : change mode to 'rb'
         #fid = open(filename, 'r')
-        fid = open(filename, 'rb')
+        filepath = os.path.join(self.storageDir, filename)
+        fid = open(filepath, 'rb')
         # TODO : change to data = fid.read(nbytes)
         #data = fid.read()
         data = fid.read(nbytes)
 
         output('datanode: output of readFile filename={0}, nbytes={1}: data={2}'.format(filename, nbytes, data))
         send(('readFile_d2c', filename, nbytes, messageId, data), to=client)
+
+
+    def receive(msg=('appendFile_c2d', filename, blockName, blockNumber, data, datanodes_to_write, messageIdTuple, idx, client), from_=sender):
+        filepath = os.path.join(self.storageDir, blockName)
+        output('received appendFile for filename={0}, filepath={1}'.format(filename, filepath))
+        # TODO- change to wb afterwards
+        fid = open(filepath, 'a+')
+        fid.write(data)
+        fid.close()
+        if idx == len(datanodes_to_write) - 1:
+            pass
+        else:
+            # Pipeline fashion
+            send(('appendFile_c2d', filename, blockName, blockNumber, data, datanodes_to_write, messageIdTuple, idx+1, client), to=datanodes_to_write[idx+1])
+        # TODO - incorporate block number in these messages
+        bytesWritten = len(data)
+        send(('appendFile_d2n', filename, blockNumber, bytesWritten, self.datanodeId), to=namenodes)
+        send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
     def receive(msg=('kill')):

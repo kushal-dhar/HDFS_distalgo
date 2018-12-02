@@ -6,13 +6,13 @@ class Inode:
     Namenode stores Inode corresponding to each file in memory.
     """
     def __init__(self, filename):
-        self._filename = filename
-        self._namespace = None
-        self._size = 0
+        self.filename = filename
+        self.namespace = None
+        self.size = 0
         currentTime = time.clock()
-        self._modifiedTime = currentTime
-        self._accessTime = currentTime
-        self._permissions = None
+        self.modifiedTime = currentTime
+        self.accessTime = currentTime
+        self.permissions = None
     
     def getFileName():
         """
