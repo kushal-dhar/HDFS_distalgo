@@ -214,6 +214,9 @@ class NameNode(process):
         output("namenode: after append info={0}".format(str(self.blockinfo[filename])))
 
 
+    def receive(msg=('numBlocksInFile', filename, messageId), from_= client):
+        nBlocks = self.blockinfo[filename].getNumberOfBlocks()
+        send(('numBlocksInFile', filename, messageId, nBlocks), to=client)
 
 
     def acquireLock(lockObj):

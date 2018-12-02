@@ -61,10 +61,10 @@ class User(process):
 
 
         output('user: read file')
-        send(('readFile', 'token2', 'f1', 0, 16), to=clients)
-        output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 16))
-        await(some(received(('readFile', 'token2', 'f1', 0, 16, _))))
-        result = setof(r, received(('readFile', 'token2', 'f1', 0, 16, r)))
+        send(('readFile', 'token2', 'f1', 0, 100), to=clients)
+        output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
+        await(some(received(('readFile', 'token2', 'f1', 0, 100, _))))
+        result = setof(r, received(('readFile', 'token2', 'f1', 0, 100, r)))
         output('user: received readfile result: ', result)
 
         await(received(('kill')))

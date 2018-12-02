@@ -73,6 +73,7 @@ class BlockInfo:
             bpath = self.filename + '.block.' + str(bnum)
             self.dataBlocks.append(DataBlock(bnum, bpath))
         self.dataBlocks[blockNumber].addAppendInfo(bytesWritten, datanodeId)
+        self.numBlocks = len(self.dataBlocks)
 
     def getLastBlockDatanodeIds(self):
         if len(self.dataBlocks) == 0:
@@ -82,6 +83,9 @@ class BlockInfo:
     def getDatanodeIdsForBlock(self, blockNumber):
         # TODO - Check Index out of bounds error
         return self.dataBlocks[blockNumber].getDatanodeIds()
+
+    def getNumberOfBlocks(self):
+        return len(self.dataBlocks)
 
 
 """

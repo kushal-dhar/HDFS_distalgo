@@ -72,7 +72,14 @@ class Client(process):
         bytes_read = 0
         blockNumber = 0
         data = b''
-        while bytes_read < nbytes:
+        messageId = getNewMessageId()
+        send(('numBlocksInFile', filename, messageId), to=namenodes)
+        await(some(received(('numBlocksInFile', _filename, _messageId, _))))
+        result = setof(r, received( ('numBlocksInFile', _filename, _messageId, r) ))
+        total_blocks = Utils.getOneFromSet(result)
+        output("client: number of blocks in file={0} = {1}".format(filename, total_blocks))
+
+        while bytes_read < nbytes and blockNumber < total_blocks:
             messageId = getNewMessageId()
             send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
             await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
