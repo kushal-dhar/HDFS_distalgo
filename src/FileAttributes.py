@@ -82,7 +82,8 @@ class Lease:
     """
     We need to store meta-data about the lease taken by the user on thd file
     """
-    def __init__(self, filename,leaseType):
+    def __init__(self, client, filename,leaseType):
+        self.client = client
         self.filename  = filename
         self.leaseType = leaseType
         self.prevLeaseTS = None
