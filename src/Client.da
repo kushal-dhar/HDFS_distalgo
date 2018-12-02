@@ -169,3 +169,16 @@ class Client(process):
         output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
                                                                                                   read_data))
         send(('readFile', token, filename, blockNumber, nbytes, read_data), to=user)
+
+
+    def receive(msg=('deleteFile', filename), from_=user):
+        output('client: received deleteFile: filename={0}'.format(filename))
+        messageId = getNewMessageId()
+        send(('deleteFile', self, filename, messageId), to=namenodes)
+        await(some(received(('deleteFile', _filename, _messageId, _))))
+        result = setof(r, received(('deleteFile', _filename, _messageId, r)))
+        for r in result:
+            pass
+        output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
+        send(('deleteFile', filename), to=user)
+

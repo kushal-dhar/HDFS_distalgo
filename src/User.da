@@ -34,11 +34,14 @@ class User(process):
         await(some(received(('listFiles', _))))
 
         send(('openFile', Config.W_LEASE,'token', 'f1'), to=clients)
-        send(('openFile', Config.W_LEASE, 'token1', 'f1'), to=clients)
+        #send(('openFile', Config.W_LEASE, 'token1', 'f2'), to=clients)
         send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
-        await(some(received(('openFile', Config.W_LEASE, 'token', 'f1', _))))
+        #await(some(received(('openFile', Config.W_LEASE, 'token', 'f1', _))))
         await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
-        await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
+        #await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
+        #time.sleep(5)
+        send(('deleteFile', 'f1'), to=clients)
+        await(some(received(('deleteFile', 'f1'))))
 
         #send(('openFile', 'r', 'token2', 'f2'), to=clients)
         #await(some(received(('openFile', 'r', 'token2', 'f2', _))))
@@ -48,11 +51,11 @@ class User(process):
 
 
 
-        output('user: read file')
-        send(('readFile', 'token2', 'filename', 1, 15), to=clients)
-        await(some(received(('readFile', 'token2', 'filename', 1, 15, _))))
-        result = setof(r, received(('readFile', 'token2', 'filename', 1, 15, r)))
-        output('client: received readfile result: ', result)
+        # output('user: read file')
+        # send(('readFile', 'token2', 'filename', 1, 15), to=clients)
+        # await(some(received(('readFile', 'token2', 'filename', 1, 15, _))))
+        # result = setof(r, received(('readFile', 'token2', 'filename', 1, 15, r)))
+        # output('client: received readfile result: ', result)
 
         await(received(('kill')))
 

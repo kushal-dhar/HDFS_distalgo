@@ -26,7 +26,7 @@ class LeaseMonitor(process):
         currentTime = time.time()
         for eachFile in file2leaseobj:
             if currentTime - clientTimeStamp[eachFile.client] >= hard_limit:
-                send(('closeFile', Config.W_LEASE, eachFile.client, eachFile.filename, -1), to=namenode)
+                send(('closeFile', Config.W_LEASE, file2leaseobj[eachFile].client, file2leaseobj[eachFile].filename, -1), to=namenode)
         time.sleep(60)
         send(('getLeaseInfo', self), to=namenode)
 
@@ -251,15 +251,32 @@ class NameNode(process):
             send(('closeFile', filename, mode, messageId, True), to=client)
         else:
             self.file2leasereq[filename].pop(0)
-            req_info =  self.file2leasereq[filename][0]
-            output("closeFile args: ",filename, mode, messageId)
-            send(('closeFile', filename, mode, messageId, True), to=client)
-            grantLease(client,req_info)
-            output("Closed File")
+            if len(file2leasereq[filename]) > 0:
+                req_info =  self.file2leasereq[filename][0]
+                output("closeFile args: ",filename, mode, messageId)
+                send(('closeFile', filename, mode, messageId, True), to=client)
+                grantLease(client,req_info)
+                output("Closed File: ",filename)
+            else:
+                leaseObj = file2leaseobj[filename]
+                leaseObj.leaseType = None
+                output("closeFile args: ", filename, mode, messageId)
+                send(('closeFile', filename, mode, messageId, True), to=client)
+                output("Closed File: ",filename)
+
             """
             TO-DO : Add the timestamp for latest lease
 
             """
+
+    def receive(msg=('deleteFile', client, filename, messageId)):
+        output('received deleteFile request from: %s for file: %s' %(client, filename))
+        leaseObj = file2leaseobj[filename]
+        if leaseObj.leaseType == None:
+            output("deleteFile: Going to delete file: ",filename)
+            send(('deleteFile', filename, messageId, True), to=client)
+        else:
+            send(('deleteFile', filename, messageId, False), to=client)
 
 
     def receive(msg=('getLeaseInfo', leaseMonitor)):
