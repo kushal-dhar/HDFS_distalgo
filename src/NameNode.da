@@ -150,7 +150,7 @@ class NameNode(process):
         else:
             leaseObj = self.file2leaseobj[req_info[0]]
             leaseObj.leaseType = req_info[1]
-        output("Lease acquired")
+        output("Lease acquired for file: %s by client: %s" %(req_info[0], client))
         send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)
 
 
@@ -220,7 +220,7 @@ class NameNode(process):
             output('file ', filename, ' not present')
             result = False
         else:
-            req_info = (filename, mode, messageId)
+            req_info = (filename, mode, messageId, client)
             if(mode  == Config.R_LEASE):
                 grantLease(client, req_info)
             else:
@@ -253,6 +253,7 @@ class NameNode(process):
 
     def receive(msg=('closeFile', mode, client, filename, messageId)):
         output('received closeFile request from : ', client)
+        output('releasing lease for file: ',filename)
         if (mode == Config.R_LEASE):
             send(('closeFile', filename, mode, messageId, True), to=client)
         else:
@@ -261,7 +262,7 @@ class NameNode(process):
                 req_info =  self.file2leasereq[filename][0]
                 output("closeFile args: ",filename, mode, messageId)
                 send(('closeFile', filename, mode, messageId, True), to=client)
-                grantLease(client,req_info)
+                grantLease(req_info[3],req_info)
                 output("Closed File: ",filename)
             else:
                 leaseObj = file2leaseobj[filename]
@@ -297,7 +298,7 @@ class NameNode(process):
 
         # Create fresh block and store data
         if newDatanodeToWrite:
-            output("namenode: allocating new block for append to filename={0}".format(filename))
+            #output("namenode: allocating new block for append to filename={0}".format(filename))
             datanodes = [d for d in self.pid2datanodeId.keys()]
             # If alive datanodes are less than replication factor, nominate all datanodes for storing blocks
             if len(datanodes) > Config.BLOCK_REPLICATION_FACTOR:
@@ -309,7 +310,7 @@ class NameNode(process):
         # Append to the last written block
         else:
             #bytesToWrite = Config.BLOCK_SIZE - lastBlockSize
-            output("namenode: appending to last block for append to filename={0}".format(filename))
+            #output("namenode: appending to last block for append to filename={0}".format(filename))
             selectedDatanodeIds = self.blockinfo[filename].getLastBlockDatanodeIds()
             # Get PID from datanode Id
             # TODO - handle datanode failure
@@ -321,10 +322,10 @@ class NameNode(process):
         send(('appendFile_n2c', filename, messageId, replyData), to=client)
 
     def receive(msg=('appendFile_d2n', filename, blockNumber, bytesWritten, datanodeId)):
-        output("namenode: received appendFile confirmation for filename={0} from datanode={1}".format(filename, datanodeId))
+        #output("namenode: received appendFile confirmation for filename={0} from datanode={1}".format(filename, datanodeId))
         # update this append information in blockinfo
         self.blockinfo[filename].addAppendInfo(blockNumber, bytesWritten, datanodeId)
-        output("namenode: after append info={0}".format(str(self.blockinfo[filename])))
+        #output("namenode: after append info={0}".format(str(self.blockinfo[filename])))
 
 
     def receive(msg=('numBlocksInFile', filename, messageId), from_= client):

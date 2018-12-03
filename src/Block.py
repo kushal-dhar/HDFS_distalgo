@@ -12,7 +12,8 @@ class BlockInfo:
         self.inode = minode
 
     def __str__(self):
-        dataBlockInfo = '\n'.join([str(d) for d in self.dataBlocks])
+        #TODO - replace , with \n
+        dataBlockInfo = ','.join([str(d) for d in self.dataBlocks])
         info = "filename={0}, numBlocks={1}, dataBlocks={2}".format(self.filename, self.numBlocks, dataBlockInfo)
         return info
 

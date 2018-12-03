@@ -11,7 +11,7 @@ try:
 except:
     pass
 '''
-PROJECT_DATA_PATH = '/home/droid/project_data/datanodes/'
+PROJECT_DATA_PATH = '/home/kushal/Documents/Async/HDFS/latest_commit/src/'
 
 NAMENODE_LOCATION = 'nnode'
 

@@ -163,7 +163,7 @@ class Client(process):
             send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
             await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
 
-'''
+            """
         output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,r))
         # Client contacts one of datanode for data
         # TODO - handle case when r in None
@@ -178,7 +178,7 @@ class Client(process):
         output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
                                                                                                   read_data))
         send(('readFile', token, filename, blockNumber, nbytes, read_data), to=user)
-'''
+            """
             result = setof(r, received(('readFile_n2c', _filename, _blockNumber, _messageId, r)))
             # r is the list of (datanodes, location of block) which store the block client wants to read
             r = Utils.getOneFromSet(result)
