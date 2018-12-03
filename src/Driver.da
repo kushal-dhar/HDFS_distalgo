@@ -1,8 +1,11 @@
+import pickle
+import time
 
-
-class HDFSDriver:
-    
-    def __init__():
-        pass
-    
-    def 
+def main():
+    with open("user.pickle", "rb") as fid:
+        users = pickle.load(fid)
+    output("driver: un-pickled users=%s" %(users))
+    send(('createFile', 'driver.txt'), to=users)
+    time.sleep(5)
+    send(('listFiles'), to=users)
+    await(received(("kill")))
