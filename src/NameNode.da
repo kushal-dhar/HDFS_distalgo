@@ -234,7 +234,9 @@ class NameNode(process):
             # acquire lease for the file
             output('acquired lease for filename: ', filename)
             result = True
+        output("args in openfile: ",filename, mode, messageId, result, client)
         send(('openFile', filename, mode, messageId, result), to=client)
+        output("Message sent from Namenode to client")
 
 
 
@@ -281,6 +283,16 @@ class NameNode(process):
         leaseObj = file2leaseobj[filename]
         if leaseObj.leaseType == None:
             output("deleteFile: Going to delete file: ",filename)
+            numBlocks = blockinfo[filename].getNumberOfBlocks()
+            for block in range(numBlocks):
+                dataNodes = blockinfo[filename].getDatanodeIdsForBlock(block)
+                blockname = filename + '.block.' + str(block)
+                for node in dataNodes:
+                    dataNodePID = datanodeId2pid[node]
+                    send(('deleteBlock', blockname), to=dataNodePID)
+            del blockinfo[filename]
+            del inodes[filename]
+
             send(('deleteFile', filename, messageId, True), to=client)
         else:
             send(('deleteFile', filename, messageId, False), to=client)

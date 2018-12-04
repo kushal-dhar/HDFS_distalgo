@@ -1,10 +1,6 @@
 import time
-<<<<<<< HEAD
 import Config
-
-=======
 import Utils
->>>>>>> 92d79de174681f3d2b5f7ec679381cb2d39af464
 
 """
 User process in HDFS cluster.
@@ -76,7 +72,23 @@ class User(process):
         output('user: received appendFile from file: %s, result: %s' %('f1',result))
         send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
         await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
+        # send(('deleteFile', 'f1'), to=clients)
+        # await(some(received(('deleteFile', 'f1'))))
 
+        # send(('openFile', Config.W_LEASE,'token1', 'f1'), to=clients)
+        # await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
+        # result = setof(r, received(('openFile', Config.W_LEASE, 'token1', 'f1', r)))
+        # r = Utils.getOneFromSet(result)
+        # output("user received openfile f1 result ", result)
+
+
+        output('user: read file')
+        send(('readFile', 'token2', 'f1', 0, 100), to=clients)
+        #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
+        await(some(received(('readFile', 'token2', 'f1', 0, 100, _))))
+        result = setof(r, received(('readFile', 'token2', 'f1', 0, 100, r)))
+        output('user: received readfile f1, result: ', result)
+        output('\n\n\n\n')
 
         output('user: read file')
         send(('readFile', 'token2', 'f1', 0, 100), to=clients)

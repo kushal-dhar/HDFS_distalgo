@@ -43,6 +43,7 @@ class UserReq_Handle(process):
 
     def run():
         output('awaiting to aquire lease ')
+        output("awaiting for args: ",filename, mode, messageId)
         await(some(received(('openFile', _filename, _mode, _messageId, _))))
         result = setof(r, received(('openFile', _filename, _mode, _messageId, r)))
         output("result: ", result)
@@ -50,6 +51,10 @@ class UserReq_Handle(process):
             pass
         output('client: received result of open from namenode for file: ', filename, ' result= ', r)
         send(('openFile', mode, token, filename, r), to=user)
+        exit(0)
+
+    def receive(msg=('openFile', filename, mode, messageId, result)):
+        output("result: ", filename, mode, messageId, result)
         exit(0)
 
 
@@ -120,16 +125,16 @@ class Client(process):
         messageId = getNewMessageId()
         output('sending open request to namenode for: ', filename, ' with msgId: ', messageId)
         send(('openFile', mode, self, filename, messageId), to=namenodes)
-        reqs = new(UserReq_Handle, num=1)
-        for req in reqs:
-            setup(req, args=(filename, mode, messageId, token, user))
-        start(reqs)
-        #await(some(received(('openFile', _filename, _mode, _messageId ,_))))
-        # Reply back to client with the result
-        #result = setof(r, received(('openFile', _filename, _mode, _messageId ,r)))
-        #r = Utils.getOneFromSet(result)
-        #output('client: received result of open from namenode for file: ', filename, ' result= ', r)
-        send(('openFile', mode, token, filename, True), to=user)
+        # reqs = new(UserReq_Handle, num=1)
+        # for req in reqs:
+        #     setup(req, args=(filename, mode, messageId, token, user))
+        # start(reqs)
+        await(some(received(('openFile', _filename, _mode, _messageId, _))))
+        #Reply back to client with the result
+        result = setof(r, received(('openFile', _filename, _mode, _messageId ,r)))
+        r = Utils.getOneFromSet(result)
+        output('client: received result of open from namenode for file: ', filename, ' result= ', r)
+        send(('openFile', mode, token, filename, r), to=user)
 
 
     def receive(msg=('closeFile', mode, token, filename), from_=user):

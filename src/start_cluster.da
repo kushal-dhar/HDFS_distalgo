@@ -54,7 +54,7 @@ def main():
 
 
     # Start clients
-    clients = new(Client.Client, num=2, at=Config.CLIENT_LOCATION)
+    clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
     for client in clients:
         setup(client, args=(namenodes,))
     start(clients)
@@ -62,15 +62,15 @@ def main():
 
     # Start users
     users = new(User.User, num=1, at=Config.USER_LOCATION)
-    client_list = list(clients)
+    #client_list = list(clients)
     for user in users:
-        setup(user, args=(client_list[0],))
+        setup(user, args=(clients,))
     start(users)
 
-    users2 = new(User2.User, num=1, at=Config.USER_LOCATION)
-    for user in users2:
-        setup(user, args=(client_list[1],))
-    start(users2)
+    # users2 = new(User2.User, num=1, at=Config.USER_LOCATION)
+    # for user in users2:
+    #     setup(user, args=(client_list[1],))
+    # start(users2)
 
     with open("user.pickle", 'wb') as fid:
         pickle.dump(users, fid)

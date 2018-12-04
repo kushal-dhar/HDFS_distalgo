@@ -192,6 +192,14 @@ class DataNode(process):
         send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
+    def receive(msg=('deleteBlock', blockname)):
+        filepath = os.path.join(self.storageDir, blockname)
+        output('received deleteblock for block: %s from NameNode' %(blockname))
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        else:
+            output('block: %s doesnot exist in dataNode: %s' %(blockname, self))
+
     def receive(msg=('kill')):
         output('handler: received kill message')
         exit(0)
