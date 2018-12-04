@@ -11,20 +11,23 @@ try:
 except:
     pass
 '''
-PROJECT_DATA_PATH = '/home/kushal/Documents/Async/HDFS/latest_commit/src/'
+PROJECT_DATA_PATH = '/home/droid/project_data/datanodes/'
 
 NAMENODE_LOCATION = 'nnode'
 
 DATANODE_LOCATION = 'dnode'
 DATANODE_ID_FILE = 'datanodeid'
 
-DATANODE_HEARTBEAT_INTERVAL = 60
+# TODO: change it to 60 finally
+DATANODE_HEARTBEAT_INTERVAL = 3
 CLIENT_HEARTBEAT_INTERVAL = 60
 CLIENT_HARD_LIMIT = 300
 
 CLIENT_LOCATION = 'cnode'
 
 USER_LOCATION = 'unode'
+
+DATANODE_HEARTBEAT_LOCATION = 'hbpnode'
 
 BLOCK_REPLICATION_FACTOR = 2
 
@@ -39,3 +42,9 @@ R_LEASE = 0
 W_LEASE = 1
 
 CHECKSUM_SUFFIX = '.checksum'
+
+# TODO - set to 600 sec
+DATANODE_HEARTBEAT_TIMEOUT = 30 # 10 min
+
+# TODO - set to 100 sec
+DATANODE_HEARTBEAT_CHECK_INTERVAL = 5

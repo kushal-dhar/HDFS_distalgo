@@ -6,6 +6,7 @@ from FileAttributes import Inode, Lease
 from Block import BlockInfo
 import Config
 import random
+import Utils
 
 
 """
@@ -30,6 +31,41 @@ class LeaseMonitor(process):
                 send(('closeFile', Config.W_LEASE, file2leaseobj[eachFile].client, file2leaseobj[eachFile].filename, -1), to=namenode)
         time.sleep(60)
         send(('getLeaseInfo', self), to=namenode)
+
+"""
+DatanodeMonitor process to monitor datanode health
+"""
+class DatanodeMonitor(process):
+    def setup(namenode):
+        self.timeoutLimit = Config.DATANODE_HEARTBEAT_TIMEOUT   #600 seconds
+        self.checkInterval = Config.DATANODE_HEARTBEAT_CHECK_INTERVAL
+
+    def run():
+        output("Datanode Monitor process started")
+        #send(('getLeaseInfo', self), to=namenode)
+        while(True):
+            #time.sleep(self.checkInterval)
+            send(('provideDatanodeHeartbeatInfo'), to=namenode)
+            if await(received(('kill'))):
+                output("DatanodeMonitor: received kill")
+                exit(0)
+            elif timeout(self.checkInterval):
+                pass
+
+
+
+    def receive(msg=('datanodeHeartbeatInfo', datanodeHeartbeatTime, datanodeId2pid)):
+        #output("DatanodeMonitor: Received datanodeHeartbeatInfo from NameNode")
+        currentTime = time.time()
+        dead_datanodes = []
+        for datanodeId in datanodeId2pid:
+            if currentTime - datanodeHeartbeatTime[datanodeId] >= self.timeoutLimit:
+                dead_datanodes.append(datanodeId)
+        if len(dead_datanodes) == 0:
+            return
+        output("datanodeHeartbeatInfo: found dead datanodes: ", dead_datanodes)
+        dead_datanodes = tuple(dead_datanodes)
+        send(('datanodesDead', dead_datanodes), to=namenode)
 
 
 
@@ -63,6 +99,7 @@ class NameNode(process):
         self.mapLock = threading.Lock()
         self.counterLock = threading.Lock()
         self.locks = [self.mapLock, self.counterLock]
+        self.datanodeHeartbeatTime = dict()
 
 
     def run():
@@ -71,6 +108,12 @@ class NameNode(process):
         for mp in monitorProcess:
             setup(mp, args=(self,))
         start(monitorProcess)
+
+        datanodeMonitorProcess = new(DatanodeMonitor, num=1, at=Config.NAMENODE_LOCATION)
+        for dp in datanodeMonitorProcess:
+            setup(dp, args=(self,))
+        start(datanodeMonitorProcess)
+
         await(received(('kill')))
 
 
@@ -185,8 +228,14 @@ class NameNode(process):
         output('added datanode: ', datanode, ' -> ', pid2datanodeId[datanode])
 
 
-    def receive(msg=('heartbeat', datanode)):
-        output('received heartbeat from datanode: ', datanode)
+    def receive(msg=('heartbeat_datanode', datanode)):
+        # datanode is pid of sending datanode
+        #output('received heartbeat from datanode: ', datanode)
+        currentTime = time.time()
+        # TODO - think of case where this map lookup can/will fail
+        datanodeId = self.pid2datanodeId[datanode]
+        self.datanodeHeartbeatTime[datanodeId] = currentTime
+
 
 
     def receive(msg=('heartbeat_client',clientnode)):
@@ -331,6 +380,49 @@ class NameNode(process):
     def receive(msg=('numBlocksInFile', filename, messageId), from_= client):
         nBlocks = self.blockinfo[filename].getNumberOfBlocks()
         send(('numBlocksInFile', filename, messageId, nBlocks), to=client)
+
+    def receive(msg=('provideDatanodeHeartbeatInfo'), from_=datanodeHeartbeatMonitorProcess):
+        #output("namenode: received provideDatanodeHeartbeatInfo")
+        send(('datanodeHeartbeatInfo', self.datanodeHeartbeatTime, self.datanodeId2pid), to=datanodeHeartbeatMonitorProcess)
+
+    def receive(msg=('datanodesDead', dead_datanodes)):
+        output("namenode: detected datanode failure at datanodeIds={0}".format(dead_datanodes))
+        for dn in dead_datanodes:
+            pid = self.datanodeId2pid[dn]
+            self.datanodeId2pid.pop(dn, None)
+            self.pid2datanodeId.pop(pid)
+
+        # TODO : schedule replication on any other alive datanode
+        # TODO : maintain datanode -> (filename, block) data structure!!
+        # TODO : and handle updates on this structure
+        dead_datanodes = set(dead_datanodes)
+        alive_datanodes = set(dn for dn in self.datanodeId2pid.keys())
+        output("namenode: identified alive datanodes: ", alive_datanodes)
+        for filename in self.blockinfo.keys():
+            nblocks = self.blockinfo[filename].getNumberOfBlocks()
+            for blockNumber in range(nblocks):
+                storing_datanodes = set(self.blockinfo[filename].getDatanodeIdsForBlock(blockNumber))
+                storing_datanodes_dead = storing_datanodes.intersection(dead_datanodes)
+                storing_datanodes_live = storing_datanodes.difference(storing_datanodes_dead)
+                output("namenode: storing={0}, dead={1}, live={2}".format(storing_datanodes, storing_datanodes_dead, storing_datanodes_live))
+                if len(storing_datanodes_live) >= Config.BLOCK_REPLICATION_FACTOR:
+                    continue
+                if len(storing_datanodes_live) == 0:
+                    output("all datanodes for storing block={0} for file={1} are dead!!!".format(blockNumber, filename))
+                    continue
+                candidate_datanodes = alive_datanodes.difference(storing_datanodes_live)
+                if len(candidate_datanodes) == 0:
+                    output("all live datanodes already stroe block={0} for file={1}".format(blockNumber, filename))
+                    continue
+                # TODO: change 1 to required replication factor
+                source_datanode = random.sample(candidate_datanodes, 1)
+                source_datanode = self.datanodeId2pid[source_datanode[0]]
+                destination_datanode = random.sample(storing_datanodes_live, 1)
+                destination_datanode = self.datanodeId2pid[destination_datanode[0]]
+                blockFileName = filename + '.block.' + str(blockNumber)
+                output("storing block={0} for file={1} from={2} to={3}".format(blockNumber, filename, source_datanode, destination_datanode))
+                send(('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode), to=source_datanode)
+
 
 
     def acquireLock(lockObj):

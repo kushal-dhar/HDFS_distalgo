@@ -32,13 +32,23 @@ class DataNodeHeartbeat(process):
     def run():
         output('start heartbeat process for datanode: ', datanode)
         while True:
-            # output('sending heartbeat', self)
-            send(('heartbeat', datanode), to=namenode)
-            time.sleep(interval)
+            #output('sending heartbeat', self)
+            send(('heartbeat_datanode', datanode), to=namenode)
+            #output("DataNodeHeartbeat: sending heartbeat")
+            #time.sleep(interval)
+            if await(received(('kill_hbprocess'))):
+                exit(0)
+            elif timeout(interval):
+                pass
 
-    def receive(msg=('kill')):
-        output('received kill')
+
+
+    def receive(msg=('kill_hbprocess')):
+        output('datanodeHeartbeatProcess: received kill')
         exit(0)
+
+    def receive(msg=('hello', sender)):
+        output("datanode heartbeat: received hello from ", sender)
 
 class DataNode(process):
 #class DataNode():
@@ -60,6 +70,7 @@ class DataNode(process):
         # Declare all class variables with self. here to reference them without self throughout
         self.datanodeId = None
         self.heartbeatThread = None
+        self.heartbeatProcess = None
 
     def run():
         output('datanode started: ', self)
@@ -71,13 +82,14 @@ class DataNode(process):
         await(some(received(('datanode_added',_))))
         output('registered successfully with namenode')
 
-        heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_LOCATION)
-        for hbp in heartbeatProcess:
+        self.heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_LOCATION)
+        #self.heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_HEARTBEAT_LOCATION)
+        for hbp in self.heartbeatProcess:
             setup(hbp, args=(self, namenodes))
-        start(heartbeatProcess)
+        start(self.heartbeatProcess)
 
 
-        await(received(('kill')))
+        await(received(('kill_datanode')))
         output('received kill message')
         exit(0)
 
@@ -192,8 +204,19 @@ class DataNode(process):
         send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
+    def receive(msg=('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode)):
+        output("datanode: receive replicate: block={0}, file={1}, to={2}".format(blockNumber, filename, destination_datanode))
+        blockFileName = os.path.join(self.storageDir, blockFileName)
+        fid = open(blockFileName, 'rb')
+        data = fid.read()
+        fid.close()
+        # TODO: implement this method
+
+
     def receive(msg=('kill')):
-        output('handler: received kill message')
+        output('handler: received kill message. hbp=', self.heartbeatProcess)
+        # Send kill message to heartbeat process!
+        send(('kill_hbprocess'), to=self.heartbeatProcess)
         exit(0)
 
 """

@@ -1,10 +1,10 @@
 import time
-<<<<<<< HEAD
+
 import Config
 
-=======
+#=======
 import Utils
->>>>>>> 92d79de174681f3d2b5f7ec679381cb2d39af464
+
 
 """
 User process in HDFS cluster.
