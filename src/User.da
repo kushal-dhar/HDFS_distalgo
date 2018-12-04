@@ -1,6 +1,10 @@
 import time
+<<<<<<< HEAD
 import Config
 
+=======
+import Utils
+>>>>>>> 92d79de174681f3d2b5f7ec679381cb2d39af464
 
 """
 User process in HDFS cluster.
@@ -97,6 +101,13 @@ class User(process):
         output('user: received createFile result: ', filename, ' = ', result)
 
 
+    def receive(msg=('createFile', filename)):
+        output("user: createFile msg handler for filename=%s" %(filename))
+        send(('createFile', filename), to=clients)
 
     def receive(msg=('listFiles', files)):
         output('user: received listFiles result: ', files)
+
+    def receive(msg=('listFiles')):
+        output("user: listFiles msg handler")
+        send(('listFiles'), to=clients)

@@ -6,7 +6,7 @@ User2 = import_da('User2')
 
 import Config
 import os
-
+import pickle
 
 
 
@@ -72,6 +72,10 @@ def main():
         setup(user, args=(client_list[1],))
     start(users2)
 
+    with open("user.pickle", 'wb') as fid:
+        pickle.dump(users, fid)
+
+    # TODO: Garbage code below. clean it
     await(some(received(('start_datanodes', _, _))))
 
     output('received message to kill existing datandoes')
