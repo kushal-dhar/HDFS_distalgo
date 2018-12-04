@@ -88,3 +88,8 @@ class Lease:
         self.leaseType = leaseType
         self.prevLeaseTS = None
 
+
+    def __str__(self):
+        string = "client=%s, filename: %s" %(self.client, self.filename)
+        return string
+

@@ -26,8 +26,11 @@ class LeaseMonitor(process):
         output("Received leaseinfo from NameNode")
         currentTime = time.time()
         for eachFile in file2leaseobj:
-            if currentTime - clientTimeStamp[eachFile.client] >= hard_limit:
-                send(('closeFile', Config.W_LEASE, file2leaseobj[eachFile].client, file2leaseobj[eachFile].filename, -1), to=namenode)
+            output("lease: ",file2leaseobj[eachFile], clientTimeStamp)
+            #leaseObj = file2leaseobj[eachFile]
+            if currentTime - clientTimeStamp[file2leaseobj[eachFile].client] >= hard_limit:
+                output("file2leaseobj: ",file2leaseobj)
+                send(('closeFile', Config.W_LEASE, None, file2leaseobj[eachFile].filename, -1), to=namenode)
         time.sleep(60)
         send(('getLeaseInfo', self), to=namenode)
 
@@ -150,6 +153,7 @@ class NameNode(process):
         else:
             leaseObj = self.file2leaseobj[req_info[0]]
             leaseObj.leaseType = req_info[1]
+            self.file2leaseobj[req_info[0]] = leaseObj
         output("Lease acquired for file: %s by client: %s" %(req_info[0], client))
         send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)
 
@@ -269,6 +273,7 @@ class NameNode(process):
             else:
                 leaseObj = file2leaseobj[filename]
                 leaseObj.leaseType = None
+                self.file2leaseobj[filename] = leaseObj
                 output("closeFile args: ", filename, mode, messageId)
                 send(('closeFile', filename, mode, messageId, True), to=client)
                 output("Closed File: ",filename)
