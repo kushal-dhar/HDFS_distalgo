@@ -204,6 +204,7 @@ class DataNode(process):
         send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
+
     def receive(msg=('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode)):
         output("datanode: receive replicate: block={0}, file={1}, to={2}".format(blockNumber, filename, destination_datanode))
         blockFileNameToRead = os.path.join(self.storageDir, blockFileName)
@@ -221,6 +222,15 @@ class DataNode(process):
         fid.close()
         bytesWritten = len(data)
         send(('appendFile_d2n', filename, blockNumber, bytesWritten, self.datanodeId), to=namenodes)
+
+
+    def receive(msg=('deleteBlock', blockname)):
+        filepath = os.path.join(self.storageDir, blockname)
+        output('received deleteblock for block: %s from NameNode' %(blockname))
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        else:
+            output('block: %s doesnot exist in dataNode: %s' %(blockname, self))
 
 
     def receive(msg=('kill')):

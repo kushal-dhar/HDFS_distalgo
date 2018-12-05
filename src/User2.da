@@ -46,8 +46,8 @@ class User(process):
         await(some(received(('openFile', Config.W_LEASE, 'token', 'f1', _))))
         #output("Lease acquired by ", self)
         #time.sleep(5)
-        #send(('deleteFile', 'f1'), to=clients)
-        #await(some(received(('deleteFile', 'f1'))))
+        #send(('deleteFile', 'token1', 'f1'), to=clients)
+        #await(some(received(('deleteFile', 'token1', 'f1'))))
 
         #send(('openFile', 'r', 'token2', 'f2'), to=clients)
         #await(some(received(('openFile', 'r', 'token2', 'f2', _))))
@@ -74,15 +74,37 @@ class User(process):
         send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
         await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
 
-
+        send(('openFile', Config.R_LEASE,'token3', 'f1'), to=clients)
+        await(some(received(('openFile', Config.R_LEASE, 'token3', 'f1', _))))
 
         output('user: read file')
         send(('readFile', 'token2', 'f1', 0, 200), to=clients)
-        #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
         await(some(received(('readFile', 'token2', 'f1', 0, 200, _))))
         result = setof(r, received(('readFile', 'token2', 'f1', 0, 200, r)))
-        output('user: received readfile f1, result: ', result)
+        output('user: received readfile f1 for client2, result: ', result)
         output('\n\n\n\n')
+
+        send(('readFile', 'token3', 'f1', 0, 200), to=clients)
+        await(some(received(('readFile', 'token3', 'f1', 0, 200, _))))
+        result = setof(r, received(('readFile', 'token3', 'f1', 0, 200, r)))
+        output('user: received readfile f1 for client2, result: ', result)
+        output('\n\n\n\n')
+
+        send(('closeFile', Config.R_LEASE, 'token4', 'f1'), to=clients)
+        await(some(received(('closeFile', Config.R_LEASE, 'token4', 'f1', _))))
+
+        output("User2 going to open file f1 again")
+        send(('openFile', Config.W_LEASE,'token5', 'f1'), to=clients)
+        await(some(received(('openFile', Config.W_LEASE, 'token5', 'f1', _))))
+
+        send(('appendFile', 'token6', 'f1', '#######Hello HDFS. An awesome tool to store data in equal sized blocks :)'), to=clients)
+        await(some(received(('appendFile', 'token6', 'f1', _))))
+        result = setof(r, received(('appendFile', 'token6', 'f1', r)))
+        output('user: received appendFile from file: %s, result: %s' %('f1',result))
+        time.sleep(.5)
+
+        send(('closeFile', Config.W_LEASE, 'token7', 'f1'), to=clients)
+        await(some(received(('closeFile', Config.W_LEASE, 'token7', 'f1', _))))
 
 
         # output('user: read file')
