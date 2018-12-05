@@ -2,6 +2,7 @@ import time
 import Config
 import Utils
 
+
 """
 User process in HDFS cluster.
 Users interact with HDFS by sending messages to HDFS Client
@@ -20,8 +21,8 @@ class User(process):
         output('user running: ', self)
         time.sleep(5)
         output('sending create file f1 to client')
-        send(('createFile', 'f1'), to=clients)
-        await(some(received(('createFile','f1',_))))
+        send(('createFile', 'token0', 'f1'), to=clients)
+        await(some(received(('createFile', 'token0', 'f1',_))))
 
         '''
         send(('listFiles'), to=clients)
@@ -29,14 +30,14 @@ class User(process):
         '''
 
         output('sending create file f2 to client')
-        send(('createFile', 'f2'), to=clients)
-        await(some(received(('createFile', 'f2', _))))
+        send(('createFile', 'token00', 'f2'), to=clients)
+        await(some(received(('createFile', 'token00', 'f2', _))))
 
         #time.sleep(5)
 
-        send(('listFiles'), to=clients)
+        send(('listFiles', 'token000'), to=clients)
         # won't wait here :)
-        await(some(received(('listFiles', _))))
+        await(some(received(('listFiles', 'token000', _))))
 
         send(('openFile', Config.W_LEASE,'token', 'f1'), to=clients)
         #send(('openFile', Config.W_LEASE, 'token1', 'f2'), to=clients)

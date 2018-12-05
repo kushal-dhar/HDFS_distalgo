@@ -8,7 +8,7 @@ Client2 = import_da('Client2')
 import Config
 import os
 import pickle
-
+import time
 
 
 
@@ -24,7 +24,7 @@ def main():
 
 
     # Start datanodes
-    datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
+    datanodes = new(DataNode.DataNode, num=4, at=Config.DATANODE_LOCATION)
     output("project data path= ", Config.PROJECT_DATA_PATH)
     count = 1
     for datanode in datanodes:
@@ -35,6 +35,20 @@ def main():
         count += 1
     start(datanodes)
 
+
+    # Datanode failure check
+    """
+    time.sleep(10)
+    output("sending terminate msg to datanode0")
+    datanodeList = list(datanodes)
+    send(('kill'), to=datanodeList[0])
+
+    time.sleep(60)
+    output("sending terminate msg to datanode1")
+    send(('kill'), to=datanodeList[1])
+
+    time.sleep(60)
+    """
     """
     datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
 
@@ -53,20 +67,6 @@ def main():
             output('message received')
     """
 
-    # Start clients
-    clients = new(Client2.Client, num=1, at=Config.CLIENT_LOCATION)
-    for client in clients:
-        setup(client, args=(namenodes,))
-    start(clients)
-
-    # Start users
-    users = new(User2.User, num=1, at=Config.USER_LOCATION)
-    #client_list = list(clients)
-    for user in users:
-        setup(user, args=(clients,))
-    start(users)
-
-
 
     # Start clients
     clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
@@ -81,8 +81,26 @@ def main():
         setup(user, args=(clients,))
     start(users)
 
+
+    """
+    users2 = new(User2.User, num=1, at=Config.USER_LOCATION)
+    for user in users2:
+        setup(user, args=(client_list[1],))
+    start(users2)
+
     with open("user.pickle", 'wb') as fid:
         pickle.dump(users, fid)
+    """
+
+
+    time.sleep(15)
+    output("sending terminate msg to datanode0")
+    datanodeList = list(datanodes)
+    send(('kill'), to=datanodeList[0])
+
+    #time.sleep(20)
+    #output("sending terminate msg to datanode1")
+    #send(('kill'), to=datanodeList[1])
 
     # TODO: Garbage code below. clean it
     await(some(received(('start_datanodes', _, _))))
