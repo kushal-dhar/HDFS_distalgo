@@ -1,6 +1,8 @@
 import time
 import Config
+import Client
 import Utils
+import pickle
 
 
 """
@@ -9,17 +11,110 @@ Users interact with HDFS by sending messages to HDFS Client
 """
 class User(process):
 
-    def setup(clients):
+    def setup(pickleFile):
+        self.pickleFile = pickleFile
         self.msgId = 0
+        self.tokenString = 'token'
+        self.clients = None
+        self.nameNodes = None
+        self.filemode = -1
 
     def delay():
         for _ in range(50000000):
             pass
         time.sleep(10)
 
+
+    def getToken():
+        token = tokenString + str(msgId)
+        msgId += 1
+        return token
+
+
+    def createFile(filename):
+        token = getToken()
+        send(('createFile', token, filename), to=clients)
+        await(some(received(('createFile', _token, _filename, _))))
+        result = setof(r, received(('createFile', _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def openFile(filename, mode):
+        if mode == 'r':
+            filemode = Config.R_LEASE
+        elif mode == 'w':
+            filemode = Config.W_LEASE
+        token = getToken()
+        send(('openFile', filemode, token, filename), to=clients)
+        await(some(received(('openFile', filemode, token, filename, _))))
+        result = setof(r, received(('openFile', filemode, token, filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def readFile(filename, nbytes):
+        token = getToken()
+        send(('readFile', token, filename, 0, nbytes), to=clients)
+        await(some(received(('readFile', token, filename, 0, nbytes, _))))
+        result = setof(r, received(('readFile', token, filename, 0, nbytes, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def writeFile(filename, buf):
+        token = getToken()
+        send(('appendFile', token, filename, buf),to=clients)
+        await(some(received(('appendFile', token, filename, _))))
+        result = setof(r, received(('appendFile', token, filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def closeFile(filename):
+        token = getToken()
+        send(('closeFile', filemode, token, filename), to=clients)
+        await(some(received(('closeFile', filemode, token, filename, _))))
+        # Reset filemode. We are saving the filemode during open call to keep track of the mode
+        # with which the file was opened
+        filemode = -1
+        result = setof(r, received(('closeFile', filemode, token, filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def deleteFile(filename):
+        token = getToken()
+        send(('deleteFile', token, filename), to=clients)
+        await(some(received(('deleteFile', token, filename))))
+
+
+    def listFiles():
+        token = getToken()
+        send(('listFiles', token), to=clients)
+        await(some(received(('listFiles', token, _))))
+
+
     def run():
+        with open(pickleFile, "rb") as fid:
+            nameNodes = pickle.load(fid)
+        # Start clients
+        clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
+        for client in clients:
+            setup(client, args=(nameNodes,))
+        start(clients)
+
+        createFile('f1')
+        openFile('f1','w')
+        writeFile('f1', 'Hello world')
+        data = readFile('f1',100)
+        output("readFile data: ", data)
+        closeFile('f1')
+
+
+        """
         output('user running: ', self)
-        time.sleep(5)
+        #time.sleep(5)
         output('sending create file f1 to client')
         send(('createFile', 'token0', 'f1'), to=clients)
         await(some(received(('createFile', 'token0', 'f1',_))))
@@ -117,7 +212,7 @@ class User(process):
         # await(some(received(('readFile', 'token2', 'f1', 0, 23, _))))
         # result = setof(r, received(('readFile', 'token2', 'f1', 0, 23, r)))
         # output('user: received readfile result: ', result)
-
+        """
         await(received(('kill')))
 
 
