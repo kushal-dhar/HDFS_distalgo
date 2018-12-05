@@ -201,7 +201,6 @@ class NameNode(process):
     def receive(msg=('heartbeat_client',clientnode)):
         output('received hearbeat from clientnode: ', clientnode)
         clientTimeStamp[clientnode] = time.time()
-        output("clientnode timestamp: ",clientTimeStamp[clientnode])
 
 
     def receive(msg=('createFile', client, filename, messageId)):
@@ -243,7 +242,6 @@ class NameNode(process):
             # acquire lease for the file
             output('acquired lease for filename: ', filename)
             result = True
-        output("args in openfile: ",filename, mode, messageId, result, client)
         send(('openFile', filename, mode, messageId, result), to=client)
         output("Message sent from Namenode to client")
 
@@ -274,7 +272,6 @@ class NameNode(process):
             self.file2leasereq[filename].pop(0)
             if len(file2leasereq[filename]) > 0:
                 req_info =  self.file2leasereq[filename][0]
-                output("closeFile args: ",filename, mode, messageId)
                 send(('closeFile', filename, mode, messageId, True), to=client)
                 grantLease(req_info[3],req_info)
                 output("Closed File: ",filename)
@@ -282,7 +279,6 @@ class NameNode(process):
                 leaseObj = file2leaseobj[filename]
                 leaseObj.leaseType = None
                 self.file2leaseobj[filename] = leaseObj
-                output("closeFile args: ", filename, mode, messageId)
                 send(('closeFile', filename, mode, messageId, True), to=client)
                 output("Closed File: ",filename)
             """
@@ -293,7 +289,6 @@ class NameNode(process):
         output('received deleteFile request from: %s for file: %s' %(client, filename))
         leaseObj = file2leaseobj[filename]
         # If there are no reader and writer process working on this file, then delete this file
-        output("leaseObj: ",leaseObj.leaseType, leaseObj.readers)
         if leaseObj.leaseType == None and leaseObj.readers == 0:
             output("deleteFile: Going to delete file: ",filename)
             numBlocks = blockinfo[filename].getNumberOfBlocks()

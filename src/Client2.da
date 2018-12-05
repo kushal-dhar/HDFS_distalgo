@@ -36,6 +36,7 @@ class ClientNodeHeartbeat(process):
 """
 Client process to accept multiple read and write requests
 """
+'''
 class UserReq_Handle(process):
 
     def setup(filename,mode,messageId,token,user):
@@ -61,6 +62,7 @@ class UserReq_Handle(process):
     def receive(msg=('openFile', filename, mode, messageId, result)):
         output("result: ", filename, mode, messageId, result)
         exit(0)
+'''
 
 
 """
@@ -222,10 +224,12 @@ class Client(process):
         dataWriteIndex = 0
         #counter = 0
         while dataWriteIndex < len(data):
-            '''if (counter == 2):
+            '''
+            if (counter == 2):
                 for hbp in heartbeatProcess:
                     send(('kill'), to=hbp)
-                sys.exit()'''
+                sys.exit()
+            '''
             messageId = getNewMessageId()
             send(('appendFile_c2n', self, filename, messageId), to=namenodes)
             await(some(received(('appendFile_n2c', _filename, _messageId, _,))))
@@ -246,14 +250,13 @@ class Client(process):
             # TODO - await for all datanodes to finish. Then notify user
             for d in datanodes_to_write:
                 await( received(('appendFile_d2c', messageIdDict[d])))
-            #await(each d in datanodes_to_write, has= received(('appendFile_d2c', messageIdDict[d])))
             output("client: append packet={0} complete".format(dataPacket))
             #counter += 1
         output('appendFile complete!!')
         send(('appendFile', token, filename, True), to=user)
 
 
-    def receive(msg=('deleteFile', filename), from_=user):
+    def receive(msg=('deleteFile', token, filename), from_=user):
         output('client: received deleteFile: filename={0}'.format(filename))
         messageId = getNewMessageId()
         send(('deleteFile', self, filename, messageId), to=namenodes)
@@ -262,4 +265,4 @@ class Client(process):
         for r in result:
             pass
         output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
-        send(('deleteFile', filename), to=user)
+        send(('deleteFile', token, filename), to=user)

@@ -243,7 +243,7 @@ class Client(process):
         send(('appendFile', token, filename, True), to=user)
 
 
-    def receive(msg=('deleteFile', filename), from_=user):
+    def receive(msg=('deleteFile', token, filename), from_=user):
         output('client: received deleteFile: filename={0}'.format(filename))
         messageId = getNewMessageId()
         send(('deleteFile', self, filename, messageId), to=namenodes)
@@ -252,4 +252,4 @@ class Client(process):
         for r in result:
             pass
         output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
-        send(('deleteFile', filename), to=user)
+        send(('deleteFile', token, filename), to=user)
