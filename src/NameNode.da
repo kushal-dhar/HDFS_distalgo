@@ -415,11 +415,12 @@ class NameNode(process):
                     output("all live datanodes already stroe block={0} for file={1}".format(blockNumber, filename))
                     continue
                 # TODO: change 1 to required replication factor
-                source_datanode = random.sample(candidate_datanodes, 1)
-                source_datanode = self.datanodeId2pid[source_datanode[0]]
-                destination_datanode = random.sample(storing_datanodes_live, 1)
+                destination_datanode = random.sample(candidate_datanodes, 1)
                 destination_datanode = self.datanodeId2pid[destination_datanode[0]]
+                source_datanode = random.sample(storing_datanodes_live, 1)
+                source_datanode = self.datanodeId2pid[source_datanode[0]]
                 blockFileName = filename + '.block.' + str(blockNumber)
+                output("namenode: replicating from={0}, to={1}".format(source_datanode, destination_datanode))
                 output("storing block={0} for file={1} from={2} to={3}".format(blockNumber, filename, source_datanode, destination_datanode))
                 send(('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode), to=source_datanode)
 
