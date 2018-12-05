@@ -192,8 +192,13 @@ class Client(process):
                                                                                                       r))
             # Client contacts one of datanode for data
             # TODO - handle case when r in None
-            datanodeToContact = r[1][0]
-            filenameAtDatanode = r[0]
+            filenameAtDatanode, datanodesToContact = r
+            if len(datanodesToContact) == 0:
+                output('client: all datanodes hosting block={0} of file={1} are dead'.format(blockNumber, filename))
+                data = (False, b'')
+                send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
+                return
+            datanodeToContact = datanodesToContact[0]
             messageId = getNewMessageId()
             send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
 
@@ -207,8 +212,9 @@ class Client(process):
                                                                                                       read_data))
         data = data[:nbytes]
         output("client: read all data: ", data)
-        output("client: sending= ", ('readFile', token, filename, mblockNumber, nbytes, data))
-        send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
+        return_data = (True, data)
+        output("client: sending= ", ('readFile', token, filename, mblockNumber, nbytes, return_data))
+        send(('readFile', token, filename, mblockNumber, nbytes, return_data), to=user)
 
 
     def receive(msg=('appendFile', token, filename, data), from_=user):
@@ -221,6 +227,13 @@ class Client(process):
             result = setof(r, received(('appendFile_n2c', _filename, _messageId, r)))
             datanodes_to_write, blockName, blockSize, blockNumber = Utils.getOneFromSet(result)
             output("client: received nominated datanodes for filename={0}: {1}, blockName={2}, nbytes={3}".format(filename, datanodes_to_write, blockName, blockSize))
+
+            # If namenode nominates no datanode, send False to user
+            if len(datanodes_to_write) == 0:
+                output('client: namenode nominated no datanode to append to file: ', filename)
+                send(('appendFile', token, filename, False), to=user)
+                return
+
             messageIdList = []
             messageIdDict = dict()
             for d in datanodes_to_write:
@@ -247,7 +260,6 @@ class Client(process):
         send(('deleteFile', self, filename, messageId), to=namenodes)
         await(some(received(('deleteFile', _filename, _messageId, _))))
         result = setof(r, received(('deleteFile', _filename, _messageId, r)))
-        for r in result:
-            pass
+        r = Utils.getOneFromSet(result)
         output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
         send(('deleteFile', token, filename), to=user)
