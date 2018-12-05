@@ -220,12 +220,12 @@ class Client(process):
     def receive(msg=('appendFile', token, filename, data), from_=user):
         output('client: received appendFile: filename={0}, token={1}, data={2}'.format(filename, token, data))
         dataWriteIndex = 0
-        counter = 0
+        #counter = 0
         while dataWriteIndex < len(data):
-            if (counter == 2):
+            '''if (counter == 2):
                 for hbp in heartbeatProcess:
                     send(('kill'), to=hbp)
-                sys.exit()
+                sys.exit()'''
             messageId = getNewMessageId()
             send(('appendFile_c2n', self, filename, messageId), to=namenodes)
             await(some(received(('appendFile_n2c', _filename, _messageId, _,))))
@@ -248,7 +248,7 @@ class Client(process):
                 await( received(('appendFile_d2c', messageIdDict[d])))
             #await(each d in datanodes_to_write, has= received(('appendFile_d2c', messageIdDict[d])))
             output("client: append packet={0} complete".format(dataPacket))
-            counter += 1
+            #counter += 1
         output('appendFile complete!!')
         send(('appendFile', token, filename, True), to=user)
 

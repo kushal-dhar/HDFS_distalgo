@@ -81,22 +81,33 @@ class User(process):
         # r = Utils.getOneFromSet(result)
         # output("user received openfile f1 result ", result)
 
+        send(('openFile', Config.R_LEASE,'token3', 'f1'), to=clients)
+        await(some(received(('openFile', Config.R_LEASE, 'token3', 'f1', _))))
+
 
         output('user: read file')
-        send(('readFile', 'token2', 'f1', 0, 100), to=clients)
-        #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
-        await(some(received(('readFile', 'token2', 'f1', 0, 100, _))))
-        result = setof(r, received(('readFile', 'token2', 'f1', 0, 100, r)))
-        output('user: received readfile f1, result: ', result)
+        send(('readFile', 'token2', 'f1', 0, 200), to=clients)
+
+        await(some(received(('readFile', 'token2', 'f1', 0, 200, _))))
+        result = setof(r, received(('readFile', 'token2', 'f1', 0, 200, r)))
+        output('user: received readfile f1 for client1, result: ', result)
         output('\n\n\n\n')
 
-        output('user: read file')
-        send(('readFile', 'token2', 'f1', 0, 100), to=clients)
-        #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
-        await(some(received(('readFile', 'token2', 'f1', 0, 100, _))))
-        result = setof(r, received(('readFile', 'token2', 'f1', 0, 100, r)))
-        output('user: received readfile f1, result: ', result)
-        output('\n\n\n\n')
+        send(('closeFile', Config.R_LEASE, 'token4', 'f1'), to=clients)
+        await(some(received(('closeFile', Config.R_LEASE, 'token4', 'f1', _))))
+
+
+        send(('deleteFile', 'f1'), to=clients)
+        await(some(received(('deleteFile', 'f1'))))
+        output("Delete file ack received")
+
+        # output('user: read file')
+        # send(('readFile', 'token2', 'f1', 0, 200), to=clients)
+        # #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
+        # await(some(received(('readFile', 'token2', 'f1', 0, 200, _))))
+        # result = setof(r, received(('readFile', 'token2', 'f1', 0, 200, r)))
+        # output('user: received readfile f1, result: ', result)
+        # output('\n\n\n\n')
 
 
         # output('user: read file')

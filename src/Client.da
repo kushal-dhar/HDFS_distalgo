@@ -31,6 +31,7 @@ class ClientNodeHeartbeat(process):
 """
 Client process to accept multiple read and write requests
 """
+'''
 class UserReq_Handle(process):
 
     def setup(filename,mode,messageId,token,user):
@@ -56,6 +57,7 @@ class UserReq_Handle(process):
     def receive(msg=('openFile', filename, mode, messageId, result)):
         output("result: ", filename, mode, messageId, result)
         exit(0)
+'''
 
 
 """
