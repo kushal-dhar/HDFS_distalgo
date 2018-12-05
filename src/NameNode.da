@@ -1,6 +1,3 @@
-'''
-from DataNode import DataNode
-'''
 import threading, time
 from FileAttributes import Inode, Lease
 from Block import BlockInfo
@@ -59,6 +56,9 @@ class DatanodeMonitor(process):
         currentTime = time.time()
         dead_datanodes = []
         for datanodeId in datanodeId2pid:
+            # TODO: is continue the right thing to do?
+            if datanodeId not in datanodeHeartbeatTime:
+                continue
             if currentTime - datanodeHeartbeatTime[datanodeId] >= self.timeoutLimit:
                 dead_datanodes.append(datanodeId)
         if len(dead_datanodes) == 0:
@@ -247,7 +247,7 @@ class NameNode(process):
     def receive(msg=('createFile', client, filename, messageId)):
         output('received create file ', filename, ' request from ', client)
         if filename in self.inodes:
-            send(('createFile', filename, messageId, False), to=client)
+            send(('createFile', filename, messageId, True), to=client)
             return
         self.inodes[filename] = Inode(filename)
         self.blockinfo[filename] = BlockInfo(filename, self.inodes[filename])
@@ -257,10 +257,10 @@ class NameNode(process):
 
     def receive(msg=('listFiles', client, messageId)):
         output('received listFiles request from : ', client)
-        files = [filename for filename in inodes]
-        filesStr = ','.join(files)
-        output('list of files: ', filesStr)
-        send(('listFiles', messageId, filesStr), to=client)
+        files = tuple([filename for filename in inodes])
+
+        output('list of files: ', files)
+        send(('listFiles', messageId, files), to=client)
 
 
     def receive(msg=('openFile', mode, client, filename, messageId)):

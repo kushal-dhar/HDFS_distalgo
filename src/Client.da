@@ -1,15 +1,11 @@
-'''
-from Block import BlockInfo
-from DataNode import DataNode
-'''
 
 import Config
 import time
-
+import Utils
 
 """
 Client HeartBeat process to notify the NameNode
-that the client is awake
+that the client is awake and running
 """
 class ClientNodeHeartbeat(process):
     def setup(clientnode, namenode, interval=Config.CLIENT_HEARTBEAT_INTERVAL):
@@ -57,23 +53,29 @@ class UserReq_Handle(process):
 Client process in HDFS cluster.
 Users interact with HDFS by sending messages to Client
 """
-import Utils
+
 
 class Client(process):
 
     def setup(namenodes):
+        # msgId is used with all messages sent to namenode to differentiate between different user requests
+        # For example, a user can send 2 request for creating the same file. msgId differentiates between these 2 requests
         self.msgId = 0
+        # Namenode with which the client interacts
         self.namenodes = namenodes
 
 
     def run():
         output('client running: ', self)
-
+        # Start heartbeat process for this client
         heartbeatProcess = new(ClientNodeHeartbeat, num=1, at=Config.CLIENT_LOCATION)
         for hbp in heartbeatProcess:
             setup(hbp, args=(self, namenodes))
         start(heartbeatProcess)
+
+        # Wait for terminate message
         await(received(('kill')))
+
 
 
     def getNewMessageId():
@@ -82,25 +84,22 @@ class Client(process):
         return messageId
 
 
-    # add token as argument for the requst
-    # notify user to not have 2 same requests with same token
-    def receive(msg=('createFile', filename), from_=user):
-        output('client: received createFile: ', filename)
+    def receive(msg=('createFile', token, filename), from_=user):
+        output('client: received createFile file={0} from user={1}'.format(filename, user))
         messageId = getNewMessageId()
-        output('client: sending createFile msg with id ', messageId)
+        output('client: sending createFile msg with id={0} to namenode'.format(messageId))
         send(('createFile', self, filename, messageId), to=namenodes)
 
         await(some(received(('createFile', _filename, _messageId, _))))
         result = setof(r, received(('createFile', _filename, _messageId, r)))
-        output('client: result= ', result, ' for filename= ', filename)
-        for r in result:
-            pass
+        output('client: createFile: result={0} for filename={1}'.format(result, filename))
+        r = Utils.getOneFromSet(result)
         output('client: received result from namenode ', r, ' for filename ', filename)
-        send(('createFile', filename, r), to=user)
+        send(('createFile', token, filename, r), to=user)
 
 
-    def receive(msg=('listFiles'), from_=user):
-        output('client: received listFiles')
+    def receive(msg=('listFiles', token), from_=user):
+        output('client: received listFiles from user:', user)
         messageId = getNewMessageId()
         output('sending listFiles request to namenode with msgId: ', messageId)
         send(('listFiles', self, messageId), to=namenodes)
@@ -109,10 +108,9 @@ class Client(process):
         #output('got reply!!')
         result = setof(r, received(('listFiles', _messageId, r)))
         output('result: ', result)
-        for r in result:
-            pass
+        r = Utils.getOneFromSet(result)
         output('received listFiles result from namenode ', r)
-        send(('listFiles', r), to=user)
+        send(('listFiles', token, r), to=user)
 
 
     def receive(msg=('openFile', mode, token, filename), from_=user):
