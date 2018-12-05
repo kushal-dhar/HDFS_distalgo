@@ -11,7 +11,7 @@ try:
 except:
     pass
 '''
-PROJECT_DATA_PATH = '/home/droid/project_data/datanodes/'
+PROJECT_DATA_PATH = '/home/kushal/Documents/Async/HDFS/latest_commit/src/'
 
 NAMENODE_LOCATION = 'nnode'
 
@@ -21,7 +21,7 @@ DATANODE_ID_FILE = 'datanodeid'
 # TODO: change it to 60 finally
 DATANODE_HEARTBEAT_INTERVAL = 3
 CLIENT_HEARTBEAT_INTERVAL = 60
-CLIENT_HARD_LIMIT = 300
+CLIENT_HARD_LIMIT = 120
 
 CLIENT_LOCATION = 'cnode'
 CLIENT2_LOCATION = 'cnode2'

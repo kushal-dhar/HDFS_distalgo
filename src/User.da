@@ -97,7 +97,7 @@ class User(process):
         send(('closeFile', Config.R_LEASE, 'token4', 'f1'), to=clients)
         await(some(received(('closeFile', Config.R_LEASE, 'token4', 'f1', _))))
 
-
+        #time.sleep(180)
         send(('deleteFile', 'token5', 'f1'), to=clients)
         await(some(received(('deleteFile', 'token5', 'f1'))))
         output("Delete file ack received")

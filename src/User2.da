@@ -101,7 +101,7 @@ class User(process):
         await(some(received(('appendFile', 'token6', 'f1', _))))
         result = setof(r, received(('appendFile', 'token6', 'f1', r)))
         output('user: received appendFile from file: %s, result: %s' %('f1',result))
-        time.sleep(.5)
+        #time.sleep(.5)
 
         send(('closeFile', Config.W_LEASE, 'token7', 'f1'), to=clients)
         await(some(received(('closeFile', Config.W_LEASE, 'token7', 'f1', _))))

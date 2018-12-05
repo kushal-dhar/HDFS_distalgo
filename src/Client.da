@@ -2,6 +2,8 @@
 import Config
 import time
 import Utils
+import sys
+
 
 """
 Client HeartBeat process to notify the NameNode
@@ -16,7 +18,11 @@ class ClientNodeHeartbeat(process):
         while True:
             # output('sending heartbeat', self)
             send(('heartbeat_client', clientnode), to=namenode)
-            time.sleep(interval)
+            #time.sleep(interval)
+            if await(False):
+                pass
+            elif timeout(interval):
+                pass
 
 
     def receive(msg=('kill')):
@@ -70,6 +76,8 @@ class Client(process):
         self.msgId = 0
         # Namenode with which the client interacts
         self.namenodes = namenodes
+        # HearbeatProcess object to keep track of process responsible for sending heartbeat
+        self.heartbeatProcess = None
 
 
     def run():
