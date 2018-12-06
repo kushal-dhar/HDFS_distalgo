@@ -88,9 +88,9 @@ class Client(process):
             setup(hbp, args=(self, namenodes))
         start(heartbeatProcess)
 
+        await(False)
         # Wait for terminate message
-        await(received(('kill')))
-
+        #await(received(('kill')))
 
 
     def getNewMessageId():
@@ -98,6 +98,11 @@ class Client(process):
         self.msgId += 1
         return messageId
 
+
+    def receive(msg=('kill'), from_=user):
+        for hbp in heartbeatProcess:
+            send(('kill'), to=hbp)
+        exit(0)
 
     def receive(msg=('createFile', token, filename), from_=user):
         output('client: received createFile file={0} from user={1}'.format(filename, user))

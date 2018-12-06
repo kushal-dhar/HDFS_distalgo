@@ -1,0 +1,230 @@
+import time
+import Config
+import Client
+import Utils
+import pickle
+import random
+
+
+"""
+User process in HDFS cluster.
+Users interact with HDFS by sending messages to HDFS Client
+"""
+class User(process):
+
+    def setup(pickleFile, counter, doKill):
+        self.pickleFile = pickleFile
+        self.msgId = 0
+        self.tokenString = 'token'
+        self.clients = None
+        self.nameNodes = None
+        self.filemode = -1
+
+    def delay():
+        for _ in range(50000000):
+            pass
+        time.sleep(10)
+
+
+    def getToken():
+        token = tokenString + str(msgId)
+        msgId += 1
+        return token
+
+
+    def createFile(filename):
+        token = getToken()
+        send(('createFile', token, filename), to=clients)
+        await(some(received(('createFile', _token, _filename, _))))
+        result = setof(r, received(('createFile', _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def openFile(filename, mode):
+        if mode == 'r':
+            filemode = Config.R_LEASE
+        elif mode == 'w':
+            filemode = Config.W_LEASE
+        token = getToken()
+        send(('openFile', filemode, token, filename), to=clients)
+        await(some(received(('openFile', _filemode, _token, _filename, _))))
+        result = setof(r, received(('openFile', _filemode, _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def readFile(filename, nbytes):
+        token = getToken()
+        send(('readFile', token, filename, 0, nbytes), to=clients)
+        await(some(received(('readFile', _token, _filename, 0, nbytes, _))))
+        result = setof(r, received(('readFile', _token, _filename, 0, nbytes, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def writeFile(filename, buf):
+        token = getToken()
+        send(('appendFile', token, filename, buf),to=clients)
+        await(some(received(('appendFile', _token, _filename, _))))
+        result = setof(r, received(('appendFile', _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def closeFile(filename):
+        token = getToken()
+        send(('closeFile', filemode, token, filename), to=clients)
+        await(some(received(('closeFile', _filemode, _token, _filename, _))))
+        # Reset filemode. We are saving the filemode during open call to keep track of the mode
+        # with which the file was opened
+        filemode = -1
+        result = setof(r, received(('closeFile', _filemode, _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def deleteFile(filename):
+        token = getToken()
+        send(('deleteFile', token, filename), to=clients)
+        await(some(received(('deleteFile', _token, _filename))))
+
+
+    def listFiles():
+        token = getToken()
+        send(('listFiles', token), to=clients)
+        await(some(received(('listFiles', _token, _))))
+
+
+    def run():
+        with open(pickleFile, "rb") as fid:
+            nameNodes = pickle.load(fid)
+        # Start clients
+        clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
+        for client in clients:
+            setup(client, args=(nameNodes,))
+        start(clients)
+
+        deleteFile('f1')
+
+
+        """
+        output('user running: ', self)
+        #time.sleep(5)
+        output('sending create file f1 to client')
+        send(('createFile', 'token0', 'f1'), to=clients)
+        await(some(received(('createFile', 'token0', 'f1',_))))
+
+        '''
+        send(('listFiles'), to=clients)
+        await(some(received(('listFiles', _))))
+        '''
+
+        output('sending create file f2 to client')
+        send(('createFile', 'token00', 'f2'), to=clients)
+        await(some(received(('createFile', 'token00', 'f2', _))))
+
+        #time.sleep(5)
+
+        send(('listFiles', 'token000'), to=clients)
+        # won't wait here :)
+        await(some(received(('listFiles', 'token000', _))))
+
+        send(('openFile', Config.W_LEASE,'token', 'f1'), to=clients)
+        #send(('openFile', Config.W_LEASE, 'token1', 'f2'), to=clients)
+        #send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
+        await(some(received(('openFile', Config.W_LEASE, 'token', 'f1', _))))
+        #await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
+        #await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
+        #time.sleep(5)
+        #send(('deleteFile', 'f1'), to=clients)
+        #await(some(received(('deleteFile', 'f1'))))
+        #output("Lease acquired by ", self)
+
+        #send(('openFile', 'r', 'token2', 'f2'), to=clients)
+        #await(some(received(('openFile', 'r', 'token2', 'f2', _))))
+        #result = setof(r, received(('openFile', 'r', 'token2', 'f2', r)))
+        #output('client: received openfile result: ', result)
+
+
+
+
+        # output('user: read file')
+        # send(('readFile', 'token2', 'filename', 1, 15), to=clients)
+        # await(some(received(('readFile', 'token2', 'filename', 1, 15, _))))
+        # result = setof(r, received(('readFile', 'token2', 'filename', 1, 15, r)))
+        # output('client: received readfile result: ', result)
+        # send(('appendFile', 'token3', 'f2', 'hello append!!\n'), to=clients)
+        # await(some(received(('appendFile', 'token3', 'f2', _))))
+        # delay()
+        output('\n\n\n\n')
+        send(('appendFile', 'token4', 'f1', 'Hello HDFS. An awesome tool to store data in equal sized blocks :)'), to=clients)
+        await(some(received(('appendFile', 'token4', 'f1', _))))
+        result = setof(r, received(('appendFile', 'token4', 'f1', r)))
+        output('user: received appendFile from file: %s, result: %s' %('f1',result))
+        send(('closeFile', Config.W_LEASE, 'token', 'f1'), to=clients)
+        await(some(received(('closeFile', Config.W_LEASE, 'token', 'f1', _))))
+        # send(('deleteFile', 'f1'), to=clients)
+        # await(some(received(('deleteFile', 'f1'))))
+
+        # send(('openFile', Config.W_LEASE,'token1', 'f1'), to=clients)
+        # await(some(received(('openFile', Config.W_LEASE, 'token1', 'f1', _))))
+        # result = setof(r, received(('openFile', Config.W_LEASE, 'token1', 'f1', r)))
+        # r = Utils.getOneFromSet(result)
+        # output("user received openfile f1 result ", result)
+
+        send(('openFile', Config.R_LEASE,'token3', 'f1'), to=clients)
+        await(some(received(('openFile', Config.R_LEASE, 'token3', 'f1', _))))
+
+
+        output('user: read file')
+        send(('readFile', 'token2', 'f1', 0, 200), to=clients)
+
+        await(some(received(('readFile', 'token2', 'f1', 0, 200, _))))
+        result = setof(r, received(('readFile', 'token2', 'f1', 0, 200, r)))
+        output('user: received readfile f1 for client1, result: ', result)
+        output('\n\n\n\n')
+
+        send(('closeFile', Config.R_LEASE, 'token4', 'f1'), to=clients)
+        await(some(received(('closeFile', Config.R_LEASE, 'token4', 'f1', _))))
+
+        #time.sleep(180)
+        send(('deleteFile', 'token5', 'f1'), to=clients)
+        await(some(received(('deleteFile', 'token5', 'f1'))))
+        output("Delete file ack received")
+
+        # output('user: read file')
+        # send(('readFile', 'token2', 'f1', 0, 200), to=clients)
+        # #output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 100))
+        # await(some(received(('readFile', 'token2', 'f1', 0, 200, _))))
+        # result = setof(r, received(('readFile', 'token2', 'f1', 0, 200, r)))
+        # output('user: received readfile f1, result: ', result)
+        # output('\n\n\n\n')
+
+
+        # output('user: read file')
+        # send(('readFile', 'token2', 'f1', 0, 23), to=clients)
+        # output("user: awaiting= ", ('readFile', 'token2', 'f1', 0, 23))
+        # await(some(received(('readFile', 'token2', 'f1', 0, 23, _))))
+        # result = setof(r, received(('readFile', 'token2', 'f1', 0, 23, r)))
+        # output('user: received readfile result: ', result)
+        """
+        #await(received(('kill')))
+        while(1):
+            pass
+
+
+    def receive(msg=('createFile', filename, result)):
+        output('user: received createFile result: ', filename, ' = ', result)
+
+
+    def receive(msg=('createFile', filename)):
+        output("user: createFile msg handler for filename=%s" %(filename))
+        send(('createFile', filename), to=clients)
+
+    def receive(msg=('listFiles', files)):
+        output('user: received listFiles result: ', files)
+
+    def receive(msg=('listFiles')):
+        output("user: listFiles msg handler")
+        send(('listFiles'), to=clients)

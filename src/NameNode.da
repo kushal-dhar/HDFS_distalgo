@@ -208,6 +208,7 @@ class NameNode(process):
                 leaseObj.readersList.append(client)
             else:
                 leaseObj.leaseType = req_info[1]
+                leaseObj.client = client
             self.file2leaseobj[req_info[0]] = leaseObj
         output("Lease acquired for file: %s by client: %s" %(req_info[0], client))
         send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)

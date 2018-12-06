@@ -94,19 +94,21 @@ def main():
 
     # Start users
     users = new(User.User, num=6, at=Config.USER_LOCATION)
+    #client_list = list(clients)
     counter = 0
     for user in users:
         setup(user, args=("namenode.pickle", counter, True))
         counter += 1
     start(users)
 
+
     """
     users = new(User2.User, num=1, at=Config.USER_LOCATION)
     for user in users:
         setup(user, args=("namenode.pickle",counter, True))
-        counter += 1
     start(users)
     """
+
 
     """
     users2 = new(User2.User, num=1, at=Config.USER_LOCATION)
