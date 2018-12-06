@@ -226,6 +226,11 @@ class NameNode(process):
             datanodeId2pid[self.nextDatanodeId] = datanode
             self.nextDatanodeId += 1
             releaseLock(counterLock)
+        elif proposedId not in datanodeId2pid:
+            acquireLock(mapLock)
+            pid2datanodeId[datanode] = proposedId
+            datanodeId2pid[proposedId] = datanode
+            releaseLock(mapLock)
         else:
             oldPid = datanodeId2pid[proposedId]
             acquireLock(mapLock)
@@ -420,8 +425,10 @@ class NameNode(process):
         output("namenode: detected datanode failure at datanodeIds={0}".format(dead_datanodes))
         for dn in dead_datanodes:
             pid = self.datanodeId2pid[dn]
+            acquireLock(mapLock)
             self.datanodeId2pid.pop(dn, None)
             self.pid2datanodeId.pop(pid)
+            releaseLock(mapLock)
 
         # TODO : schedule replication on any other alive datanode
         # TODO : maintain datanode -> (filename, block) data structure!!
@@ -437,6 +444,7 @@ class NameNode(process):
                 storing_datanodes_live = storing_datanodes.difference(storing_datanodes_dead)
                 output("namenode: storing={0}, dead={1}, live={2}".format(storing_datanodes, storing_datanodes_dead, storing_datanodes_live))
                 if len(storing_datanodes_live) >= Config.BLOCK_REPLICATION_FACTOR:
+                    output("block already replicated more than replicator_factor times")
                     continue
                 if len(storing_datanodes_live) == 0:
                     output("all datanodes for storing block={0} for file={1} are dead!!!".format(blockNumber, filename))

@@ -1,0 +1,60 @@
+NameNode = import_da('NameNode')
+DataNode = import_da('DataNode')
+Client = import_da('Client')
+User = import_da('User')
+User2 = import_da('User2')
+Client2 = import_da('Client2')
+DatanodeFailureUserTest = import_da('DatanodeFailureUserTest')
+
+import Config
+import os
+import pickle
+import time
+
+
+
+def main():
+
+    # Start namenodes
+    namenodes = new(NameNode.NameNode, num=1, at=Config.NAMENODE_LOCATION)
+    for namenode in namenodes:
+        setup(namenode, args=())
+    start(namenodes)
+
+    output('namenode started')
+
+    with open("namenode.pickle", 'wb') as fid:
+        pickle.dump(namenodes, fid)
+
+    # Start datanodes
+    datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
+    output("project data path= ", Config.PROJECT_DATA_PATH)
+    count = 1
+    datanodes_list = []
+    datanodes_storageDirs = []
+    for datanode in datanodes:
+        storageDir = os.path.join(Config.PROJECT_DATA_PATH, str(count))
+        if not os.path.isdir(storageDir):
+            os.makedirs(storageDir)
+        setup(datanode, args=(namenodes, storageDir))
+        count += 1
+        datanodes_list.append(datanode)
+        datanodes_storageDirs.append(storageDir)
+    start(datanodes)
+
+    datanodes_tuple = tuple(datanodes_list)
+    datanodes_storageDirs = tuple(datanodes_storageDirs)
+    user_setup_tuple = (datanodes_tuple, datanodes_storageDirs)
+
+
+
+    # Start datanode_failure_test_users
+
+    users = new(DatanodeFailureUserTest.User, num=1, at=Config.USER_LOCATION)
+
+    for user in users:
+        setup(user, args=("namenode.pickle", user_setup_tuple))
+    start(users)
+
+
+    await(received(('kill')))

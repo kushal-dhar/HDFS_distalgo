@@ -1,0 +1,160 @@
+import time
+import Config
+import Client
+import Utils
+import pickle
+import random
+DataNode = import_da('DataNode')
+
+
+"""
+User process in HDFS cluster.
+Users interact with HDFS by sending messages to HDFS Client
+"""
+class User(process):
+
+    def setup(pickleFile, datanodesAndStorageDirs):
+        self.pickleFile = pickleFile
+        self.msgId = 0
+        self.tokenString = 'token'
+        self.clients = None
+        self.nameNodes = None
+        self.filemode = -1
+        self.datanodes, self.storageDirs = datanodesAndStorageDirs
+
+    def delay():
+        for _ in range(50000000):
+            pass
+        time.sleep(10)
+
+
+    def getToken():
+        token = tokenString + str(msgId)
+        msgId += 1
+        return token
+
+
+    def createFile(filename):
+        token = getToken()
+        send(('createFile', token, filename), to=clients)
+        await(some(received(('createFile', _token, _filename, _))))
+        result = setof(r, received(('createFile', _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def openFile(filename, mode):
+        if mode == 'r':
+            filemode = Config.R_LEASE
+        elif mode == 'w':
+            filemode = Config.W_LEASE
+        token = getToken()
+        send(('openFile', filemode, token, filename), to=clients)
+        await(some(received(('openFile', _filemode, _token, _filename, _))))
+        result = setof(r, received(('openFile', _filemode, _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def readFile(filename, nbytes):
+        token = getToken()
+        send(('readFile', token, filename, 0, nbytes), to=clients)
+        await(some(received(('readFile', _token, _filename, 0, nbytes, _))))
+        result = setof(r, received(('readFile', _token, _filename, 0, nbytes, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def writeFile(filename, buf):
+        token = getToken()
+        send(('appendFile', token, filename, buf),to=clients)
+        await(some(received(('appendFile', _token, _filename, _))))
+        result = setof(r, received(('appendFile', _token, _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def closeFile(filename):
+        token = getToken()
+        send(('closeFile', filemode, token, filename), to=clients)
+        await(some(received(('closeFile', _filemode, _token, _filename, _))))
+        result = setof(r, received(('closeFile', _filemode, _token, _filename, r)))
+        # Reset filemode. We are saving the filemode during open call to keep track of the mode
+        # with which the file was opened
+        filemode = -1
+        final_res = Utils.getOneFromSet(result)
+        return final_res
+
+
+    def deleteFile(filename):
+        token = getToken()
+        send(('deleteFile', token, filename), to=clients)
+        await(some(received(('deleteFile', _token, _filename))))
+
+
+    def listFiles():
+        token = getToken()
+        send(('listFiles', token), to=clients)
+        await(some(received(('listFiles', _token, _))))
+        result = setof(r, received(('listFiles', _token, r)))
+        output('listFiles output: ', result)
+
+
+    def run():
+        with open(pickleFile, "rb") as fid:
+            nameNodes = pickle.load(fid)
+        # Start clients
+        clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
+        for client in clients:
+            setup(client, args=(nameNodes,))
+        start(clients)
+
+        delay = random.randint(0,5)
+        time.sleep(delay)
+
+        createFile('f1')
+        openFile('f1','w')
+        #string = str(counter)*51
+        string = b'Hello HDFS. An awesome tool to store data in equal sized blocks :)'
+        writeFile('f1', string)
+        closeFile('f1')
+        openFile('f1','r')
+        data = readFile('f1', 1000)
+        output("readFile data: ", data)
+        assert(data[1] == string), 'Read data not same as written data'
+        output('Phase 1 pass')
+        closeFile('f1')
+
+        # Kill two datanodes
+        datanode_to_kill = datanodes[0]
+        send(('kill'), to=datanode_to_kill)
+
+        datanode_to_kill = datanodes[1]
+        send(('kill'), to=datanode_to_kill)
+
+        # Wait for system to stabilize
+        time.sleep(90)
+
+        # Read data again
+        openFile('f1', 'r')
+        data = readFile('f1', 1000)
+        output('readFile after 2 datanode failures=', data)
+        # The result of this read is False in most cases, True rarely
+        output('Phase 2 pass')
+
+        # resurrect one datanode
+        new_datanodes = new(DataNode.DataNode, num=1, at=Config.DATANODE_LOCATION)
+        count = 1
+        output('storageDirs: ', self.storageDirs)
+        for nd in new_datanodes:
+            storageDir = self.storageDirs[0]
+            setup(nd, args=(nameNodes, storageDir))
+
+        start(new_datanodes)
+
+        time.sleep(30)
+        data = readFile('f1', 1000)
+        output('readFile after 2 datanode failures and 1 resurrection=', data)
+        assert (data[1] == string), 'Read data after two datanode failure and 1 resurrection not same as written data'
+        output('Phase 3 pass')
+        await(received(('kill')))
