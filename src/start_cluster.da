@@ -3,6 +3,9 @@ DataNode = import_da('DataNode')
 Client = import_da('Client')
 User = import_da('User')
 User2 = import_da('User2')
+User3 = import_da('User3')
+User4 = import_da('User4')
+User5 = import_da('User5')
 Client2 = import_da('Client2')
 
 import Config
@@ -93,10 +96,12 @@ def main():
     """
 
     # Start users
-    users = new(User.User, num=1, at=Config.USER_LOCATION)
+    users = new(User.User, num=5, at=Config.USER_LOCATION)
     #client_list = list(clients)
+    counter = 0
     for user in users:
-        setup(user, args=("namenode.pickle",))
+        setup(user, args=("namenode.pickle",counter))
+        counter += 1
     start(users)
 
 
@@ -111,10 +116,10 @@ def main():
     """
 
 
-    time.sleep(15)
-    output("sending terminate msg to datanode0")
-    datanodeList = list(datanodes)
-    send(('kill'), to=datanodeList[0])
+    #time.sleep(15)
+    #output("sending terminate msg to datanode0")
+    #datanodeList = list(datanodes)
+    #send(('kill'), to=datanodeList[0])
 
     #time.sleep(20)
     #output("sending terminate msg to datanode1")

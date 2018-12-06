@@ -3,6 +3,7 @@ import Config
 import Client
 import Utils
 import pickle
+import random
 
 
 """
@@ -11,7 +12,7 @@ Users interact with HDFS by sending messages to HDFS Client
 """
 class User(process):
 
-    def setup(pickleFile):
+    def setup(pickleFile, counter):
         self.pickleFile = pickleFile
         self.msgId = 0
         self.tokenString = 'token'
@@ -47,8 +48,8 @@ class User(process):
             filemode = Config.W_LEASE
         token = getToken()
         send(('openFile', filemode, token, filename), to=clients)
-        await(some(received(('openFile', filemode, token, filename, _))))
-        result = setof(r, received(('openFile', filemode, token, filename, r)))
+        await(some(received(('openFile', _filemode, _token, _filename, _))))
+        result = setof(r, received(('openFile', _filemode, _token, _filename, r)))
         final_res = Utils.getOneFromSet(result)
         return final_res
 
@@ -56,8 +57,8 @@ class User(process):
     def readFile(filename, nbytes):
         token = getToken()
         send(('readFile', token, filename, 0, nbytes), to=clients)
-        await(some(received(('readFile', token, filename, 0, nbytes, _))))
-        result = setof(r, received(('readFile', token, filename, 0, nbytes, r)))
+        await(some(received(('readFile', _token, _filename, 0, nbytes, _))))
+        result = setof(r, received(('readFile', _token, _filename, 0, nbytes, r)))
         final_res = Utils.getOneFromSet(result)
         return final_res
 
@@ -65,8 +66,8 @@ class User(process):
     def writeFile(filename, buf):
         token = getToken()
         send(('appendFile', token, filename, buf),to=clients)
-        await(some(received(('appendFile', token, filename, _))))
-        result = setof(r, received(('appendFile', token, filename, r)))
+        await(some(received(('appendFile', _token, _filename, _))))
+        result = setof(r, received(('appendFile', _token, _filename, r)))
         final_res = Utils.getOneFromSet(result)
         return final_res
 
@@ -74,11 +75,11 @@ class User(process):
     def closeFile(filename):
         token = getToken()
         send(('closeFile', filemode, token, filename), to=clients)
-        await(some(received(('closeFile', filemode, token, filename, _))))
+        await(some(received(('closeFile', _filemode, _token, _filename, _))))
         # Reset filemode. We are saving the filemode during open call to keep track of the mode
         # with which the file was opened
         filemode = -1
-        result = setof(r, received(('closeFile', filemode, token, filename, r)))
+        result = setof(r, received(('closeFile', _filemode, _token, _filename, r)))
         final_res = Utils.getOneFromSet(result)
         return final_res
 
@@ -86,13 +87,13 @@ class User(process):
     def deleteFile(filename):
         token = getToken()
         send(('deleteFile', token, filename), to=clients)
-        await(some(received(('deleteFile', token, filename))))
+        await(some(received(('deleteFile', _token, _filename))))
 
 
     def listFiles():
         token = getToken()
         send(('listFiles', token), to=clients)
-        await(some(received(('listFiles', token, _))))
+        await(some(received(('listFiles', _token, _))))
 
 
     def run():
@@ -104,10 +105,19 @@ class User(process):
             setup(client, args=(nameNodes,))
         start(clients)
 
+        delay = random.randint(0,5)
+        time.sleep(delay)
+
         createFile('f1')
         openFile('f1','w')
-        writeFile('f1', 'Hello world')
-        data = readFile('f1',100)
+        string = str(counter)*51
+        writeFile('f1', string)
+        writeFile('f1', string)
+        writeFile('f1', string)
+
+        closeFile('f1')
+        openFile('f1','r')
+        data = readFile('f1', 1000)
         output("readFile data: ", data)
         closeFile('f1')
 
