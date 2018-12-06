@@ -1,0 +1,16 @@
+This is the test case for basic file operations
+Checks the following file operations from a single user:
+
+1) Create a file
+2) List files
+- Created file should show in the list of files
+2) Read data from the file
+- Assert that the read data is same as written data
+3) Append data to the file
+4) Open file for read
+- Assert that the file eventually is open for reading
+5) Try to read the file
+- Assert that the read data is same as written data
+6) Close file
+7) Open a file which does not exist
+- Assert that it is not possible to open a file which is not created

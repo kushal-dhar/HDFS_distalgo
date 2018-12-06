@@ -1,0 +1,147 @@
+import time
+import Config
+import Utils
+
+class SingleUserCorrectnessTestProcess(process):
+
+    def setup(client):
+        self.msgId = 0
+        self.writeContent = b"DistAlgo is a very high-level language for programming distributed algorithms. This project implements a DistAlgo compiler with Python as the target language. In the following text, the name 'DistAlgo' refers to the compiler and not the language."
+
+    def run():
+        createAndListFiles('f1')
+        openforWrite('f1')
+        appendTest('f1', self.writeContent)
+        closeTest('f1',Config.W_LEASE)
+        openforRead('f1')
+        readTest('f1', self.writeContent)
+        closeTest('f1',Config.R_LEASE)
+        openNonExist('f10')
+        #readwithoutOpen('f1')
+
+
+    def delay():
+        for _ in range(50000000):
+            pass
+        time.sleep(10)
+
+    def readWithoutOpen(filename):
+        '''
+        Try to read a file without opening it
+        '''
+        readTest(filename,10)
+
+    def closeTest(filename, cType):
+        '''
+        check if the file is closed and the next guy in line is granted lease
+        '''
+        send(('closeFile', cType, 'token', filename), to=client)
+        await(some(received(('closeFile', _cType, 'token', _filename, _))))
+        result = setof(r, received(('closeFile', _cType, 'token', _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert (final_res), 'Unable to close file'
+        output('closeTest: test pass')
+
+
+    def readTest(filename, writeContent):
+        '''
+        check if the file written is read correctly.
+        '''
+        read_bytes = [5,10,12,27,100]
+        for mbytes in read_bytes:
+            output('readTest: mbytes=', mbytes)
+            token = 'token' + str(mbytes)
+            send(('readFile', token, filename, 0, mbytes), to=client)
+            await(some(received(('readFile', _token, _filename, 0, _mbytes, _))))
+            result = setof(r, received(('readFile', _token, _filename, 0, _mbytes, r)))
+            res_code, final_res = Utils.getOneFromSet(result)
+            ground_truth = writeContent[:mbytes]
+            output('readTest: bytes={0}, read_data={1}, ground_truth={2}'.format(mbytes, final_res, ground_truth))
+            #output('readTest: class of final_res=', final_res.__class__)
+
+            assert(ground_truth == final_res),'Did not correct read data'
+        output('readTest: test pass')
+
+
+
+    def appendTest(filename,data):
+        '''
+        Check if append to a file works
+        '''
+
+        output('Appending into file {0}'.format(filename))
+        send(('appendFile', 'token4', filename, data), to=client)
+        await(some(received(('appendFile', 'token4', _filename, _))))
+        result = setof(r, received(('appendFile', 'token4', _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert (final_res), 'append failed'
+        output("appendTest: test pass")
+
+
+    def openNonExist(filename):
+        '''
+        Check if a file which does not exist is tried to be opened
+        '''
+        output('Opening a file for a write which does not exist')
+
+        send(('openFile', Config.W_LEASE, 'token', filename), to=client)
+        leaseType = Config.W_LEASE
+        await(some(received(('openFile', _leaseType, 'token', _filename, _))))
+        result = setof(r, received(('openFile', _leaseType, 'token', _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert (not final_res), 'openFile for read succeeded for a file which is not created'
+        output('test pass')
+
+
+    def openforWrite(filename):
+        '''
+        Check if the client is granted lease for writing
+        '''
+        output('Opening file={0} for a write'.format(filename))
+        send(('openFile', Config.W_LEASE, 'token', filename), to=client)
+        leaseType = Config.W_LEASE
+        await(some(received(('openFile', _leaseType, 'token', _filename, _))))
+        result = setof(r, received(('openFile', _leaseType, 'token', _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert (final_res), 'openFile for write failed'
+        output('openforWrite: test pass')
+
+
+
+    def openforRead(filename):
+        '''
+        Check if the client has been granted access to read or not
+        '''
+        output('Opening file for a read')
+
+        send(('openFile', Config.R_LEASE, 'token', filename), to=client)
+        leaseType = Config.R_LEASE
+        await(some(received(('openFile', _leaseType, 'token', _filename, _))))
+        result = setof(r, received(('openFile', _leaseType, 'token', _filename, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert (final_res), 'openFile for read failed'
+        output('openforRead: test pass')
+
+
+    def createAndListFiles(filenames):
+        '''
+        Check if the files are getting created and listed correctly
+        '''
+
+        output('sending create file f1 to client')
+        send(('createFile', 'token0', filenames), to=client)
+        await(some(received(('createFile', 'token0', _filenames, _))))
+        result = setof(r, received(('createFile', 'token0', _filenames, r)))
+        final_res = Utils.getOneFromSet(result)
+        assert(final_res),'Create file failed'
+
+        send(('listFiles', 'token1'), to=client)
+        await(some(received(('listFiles', 'token1', _))))
+        result = setof(r, received(('listFiles', 'token1', r)))
+        final_res = Utils.getOneFromSet(result)
+
+        assert(final_res[0] == filenames), 'List files failed'
+        output('createAndListFiles test pass')
+
+
+
