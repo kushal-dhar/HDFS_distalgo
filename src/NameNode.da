@@ -45,12 +45,12 @@ class DatanodeMonitor(process):
         #send(('getLeaseInfo', self), to=namenode)
         while(True):
             #time.sleep(self.checkInterval)
-            send(('provideDatanodeHeartbeatInfo'), to=namenode)
             if await(received(('kill'))):
                 output("DatanodeMonitor: received kill")
                 exit(0)
             elif timeout(self.checkInterval):
                 pass
+            send(('provideDatanodeHeartbeatInfo'), to=namenode)
 
 
 
@@ -59,9 +59,9 @@ class DatanodeMonitor(process):
         currentTime = time.time()
         dead_datanodes = []
         for datanodeId in datanodeId2pid:
-            # TODO: is continue the right thing to do?
+            # If a datanode never sent heartbeat, assume it is not running
             if datanodeId not in datanodeHeartbeatTime:
-                continue
+                dead_datanodes.append(datanodeId)
             if currentTime - datanodeHeartbeatTime[datanodeId] >= self.timeoutLimit:
                 dead_datanodes.append(datanodeId)
         if len(dead_datanodes) == 0:
@@ -226,10 +226,15 @@ class NameNode(process):
             datanodeId2pid[self.nextDatanodeId] = datanode
             self.nextDatanodeId += 1
             releaseLock(counterLock)
+        elif proposedId not in datanodeId2pid:
+            acquireLock(mapLock)
+            pid2datanodeId[datanode] = proposedId
+            datanodeId2pid[proposedId] = datanode
+            releaseLock(mapLock)
         else:
             oldPid = datanodeId2pid[proposedId]
             acquireLock(mapLock)
-            del pid2datanodeId[oldPid]
+            pid2datanodeId.pop(oldPid, None)
             pid2datanodeId[datanode] = proposedId
             datanodeId2pid[proposedId] = datanode
             releaseLock(mapLock)
@@ -242,13 +247,14 @@ class NameNode(process):
         #output('received heartbeat from datanode: ', datanode)
         currentTime = time.time()
         # TODO - think of case where this map lookup can/will fail
+        # If datanode registered with namenode, this lookup will never fail :)
         datanodeId = self.pid2datanodeId[datanode]
         self.datanodeHeartbeatTime[datanodeId] = currentTime
 
 
 
     def receive(msg=('heartbeat_client',clientnode)):
-        output('received hearbeat from clientnode: ', clientnode)
+        #output('received hearbeat from clientnode: ', clientnode)
         clientTimeStamp[clientnode] = time.time()
 
 
@@ -298,12 +304,17 @@ class NameNode(process):
     def receive(msg=('readFile_c2n', client, filename, blockNumber, nbytes, messageId)):
         output('received readFile request from {0}: filename={1}, blockNumber={2}, nbytes={3}'.format(client, filename, blockNumber, nbytes))
 
-        # TODO: change it to find only datanodes which host the data
+        # TODO: change it to find only running datanodes which host the data
         datanodes_hosting_ids = self.blockinfo[filename].getDatanodeIdsForBlock(blockNumber)
-        datanodes_hosting_Pids = tuple([self.datanodeId2pid[d] for d in datanodes_hosting_ids])
+        running_datanodes_hosting_Pids = []
+        # Return only pid of running datanodes
+        for d in datanodes_hosting_ids:
+            if d in self.datanodeId2pid:
+                running_datanodes_hosting_Pids.append(self.datanodeId2pid[d])
+        running_datanodes_hosting_Pids = tuple(running_datanodes_hosting_Pids)
         filepath = filename + '.block.' + str(blockNumber)
-        #result_datanodes = tuple([datanodes_hosting_Pids for item in self.pid2datanodeId.keys()])
-        result = (filepath, datanodes_hosting_Pids)
+
+        result = (filepath, running_datanodes_hosting_Pids)
         output('namenode: result of readfile: ', result)
         send(('readFile_n2c', filename, blockNumber, messageId, result), to=client)
 
@@ -382,8 +393,13 @@ class NameNode(process):
             #output("namenode: appending to last block for append to filename={0}".format(filename))
             selectedDatanodeIds = self.blockinfo[filename].getLastBlockDatanodeIds()
             # Get PID from datanode Id
-            # TODO - handle datanode failure
-            selectedDatanodes = tuple([self.datanodeId2pid[d] for d in selectedDatanodeIds])
+            # TODO - handle datanode failure - done
+            selectedDatanodes = []
+            # Find datanodes which are running
+            for d in selectedDatanodeIds:
+                if d in self.datanodeId2pid:
+                    selectedDatanodes.append(self.datanodeId2pid[d])
+            selectedDatanodes = tuple(selectedDatanodes)
             #blockNumber = self.blockinfo[filename].getLastBlockNumber()
 
         blockName = filename + '.block.' + str(blockNumber)
@@ -409,8 +425,10 @@ class NameNode(process):
         output("namenode: detected datanode failure at datanodeIds={0}".format(dead_datanodes))
         for dn in dead_datanodes:
             pid = self.datanodeId2pid[dn]
+            acquireLock(mapLock)
             self.datanodeId2pid.pop(dn, None)
             self.pid2datanodeId.pop(pid)
+            releaseLock(mapLock)
 
         # TODO : schedule replication on any other alive datanode
         # TODO : maintain datanode -> (filename, block) data structure!!
@@ -426,6 +444,7 @@ class NameNode(process):
                 storing_datanodes_live = storing_datanodes.difference(storing_datanodes_dead)
                 output("namenode: storing={0}, dead={1}, live={2}".format(storing_datanodes, storing_datanodes_dead, storing_datanodes_live))
                 if len(storing_datanodes_live) >= Config.BLOCK_REPLICATION_FACTOR:
+                    output("block already replicated more than replicator_factor times")
                     continue
                 if len(storing_datanodes_live) == 0:
                     output("all datanodes for storing block={0} for file={1} are dead!!!".format(blockNumber, filename))

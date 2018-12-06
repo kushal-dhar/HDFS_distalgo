@@ -190,7 +190,7 @@ class DataNode(process):
         filepath = os.path.join(self.storageDir, blockName)
         output('received appendFile for filename={0}, filepath={1}'.format(filename, filepath))
         # TODO- change to wb afterwards
-        fid = open(filepath, 'a+')
+        fid = open(filepath, 'ab')
         fid.write(data)
         fid.close()
         if idx == len(datanodes_to_write) - 1:
