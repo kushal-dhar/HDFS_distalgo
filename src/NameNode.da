@@ -29,8 +29,12 @@ class LeaseMonitor(process):
             if currentTime - clientTimeStamp[file2leaseobj[eachFile].client] >= hard_limit:
                 output("file2leaseobj: ",file2leaseobj)
                 send(('closeFile', Config.W_LEASE, None, file2leaseobj[eachFile].filename, -1), to=namenode)
+            for readers in file2leaseobj[eachFile].readersList:
+                if currentTime - clientTimeStamp[readers] >= hard_limit:
+                    send(('closeFile', Config.R_LEASE, readers, file2leaseobj[eachFile].filename, -1), to=namenode)
         time.sleep(60)
         send(('getLeaseInfo', self), to=namenode)
+
 
 """
 DatanodeMonitor process to monitor datanode health
@@ -192,16 +196,19 @@ class NameNode(process):
         if(req_info[0] not in self.file2leaseobj):
              leaseObj = Lease(client, req_info[0],req_info[1])
              if req_info[1] == Config.R_LEASE:
-                 leaseObj.readers += 1
+                 #leaseObj.readers += 1
+                 leaseObj.readersList.append(client)
              self.file2leaseobj[req_info[0]] =  leaseObj
         else:
             leaseObj = self.file2leaseobj[req_info[0]]
             # If mode is READERS, increase READERS count otherwise make leaseType as WRITE_LEASE
             # so that during deletion, we don't delete incase someone is reading or writing
             if req_info[1] == Config.R_LEASE:
-                leaseObj.readers += 1
+                #leaseObj.readers += 1
+                leaseObj.readersList.append(client)
             else:
                 leaseObj.leaseType = req_info[1]
+                leaseObj.client = client
             self.file2leaseobj[req_info[0]] = leaseObj
         output("Lease acquired for file: %s by client: %s" %(req_info[0], client))
         send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)
@@ -325,7 +332,8 @@ class NameNode(process):
         if (mode == Config.R_LEASE):
             # Decrease the number of readers count for this file
             leaseObj = file2leaseobj[filename]
-            leaseObj.readers -= 1
+            #leaseObj.readers -= 1
+            leaseObj.readersList.remove(client)
             file2leaseobj[filename] = leaseObj
             send(('closeFile', filename, mode, messageId, True), to=client)
         else:
@@ -349,7 +357,7 @@ class NameNode(process):
         output('received deleteFile request from: %s for file: %s' %(client, filename))
         leaseObj = file2leaseobj[filename]
         # If there are no reader and writer process working on this file, then delete this file
-        if leaseObj.leaseType == None and leaseObj.readers == 0:
+        if leaseObj.leaseType == None and len(leaseObj.readersList) == 0:
             output("deleteFile: Going to delete file: ",filename)
             numBlocks = blockinfo[filename].getNumberOfBlocks()
             for block in range(numBlocks):

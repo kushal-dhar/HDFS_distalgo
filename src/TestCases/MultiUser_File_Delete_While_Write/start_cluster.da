@@ -2,7 +2,7 @@ NameNode = import_da('NameNode')
 DataNode = import_da('DataNode')
 Client = import_da('Client')
 User = import_da('User')
-#User2 = import_da('User2')
+User2 = import_da('User2')
 Client2 = import_da('Client2')
 
 import Config
@@ -100,13 +100,13 @@ def main():
         counter += 1
     start(users)
 
-    """
+
     users = new(User2.User, num=1, at=Config.USER_LOCATION)
     for user in users:
         setup(user, args=("namenode.pickle",counter, True))
         counter += 1
     start(users)
-    """
+
 
     """
     users2 = new(User2.User, num=1, at=Config.USER_LOCATION)

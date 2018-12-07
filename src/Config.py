@@ -1,17 +1,18 @@
 import os, shutil
+from os.path import expanduser
 
 DATABASE_NAME = 'hdfs'
 
-file_path = os.getcwd()
-file_path += '/datanodes/'
+home = expanduser("~")
+home += '/datanodes/'
 
-'''
+
 try:
-    shutil.rmtree(file_path)
+    shutil.rmtree(home)
 except:
     pass
-'''
-PROJECT_DATA_PATH = '/home/droid/project_data/datanodes/'
+
+PROJECT_DATA_PATH = home
 
 NAMENODE_LOCATION = 'nnode'
 
@@ -21,7 +22,7 @@ DATANODE_ID_FILE = 'datanodeid'
 # TODO: change it to 60 finally
 DATANODE_HEARTBEAT_INTERVAL = 3
 CLIENT_HEARTBEAT_INTERVAL = 60
-CLIENT_HARD_LIMIT = 300
+CLIENT_HARD_LIMIT = 120
 
 CLIENT_LOCATION = 'cnode'
 CLIENT2_LOCATION = 'cnode2'
@@ -35,7 +36,7 @@ BLOCK_REPLICATION_FACTOR = 2
 TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'
 
 # TODO : make block size more!
-BLOCK_SIZE = 5
+BLOCK_SIZE = 1000
 
 TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'
 
