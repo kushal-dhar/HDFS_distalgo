@@ -6,9 +6,8 @@ DATABASE_NAME = 'hdfs'
 home = expanduser("~")
 home += '/datanodes/'
 
-
 try:
-    shutil.rmtree(home)
+    os.rmdir(home)
 except:
     pass
 
@@ -33,12 +32,8 @@ DATANODE_HEARTBEAT_LOCATION = 'hbpnode'
 
 BLOCK_REPLICATION_FACTOR = 2
 
-TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'
-
 # TODO : make block size more!
 BLOCK_SIZE = 1000
-
-TEST_FILE_PATH = '/home/droid/project_data/test_file.txt'
 
 R_LEASE = 0
 W_LEASE = 1

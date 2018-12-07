@@ -109,7 +109,7 @@ class User(process):
         createFile('f1')
         openFile('f1','w')
         #string = str(counter)*51
-        file = open("/home/kushal/dummyFile.txt", "r")
+        file = open("/home/kushal/dummyFile.txt", "rb")
         string = file.read()
         writeFile('f1', string)
         writeFile('f1', string)
