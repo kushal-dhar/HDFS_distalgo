@@ -217,7 +217,9 @@ class Client(process):
         output("client: read all data: ", data)
         output("client: sending= ", ('readFile', token, filename, mblockNumber, nbytes, data))
         send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
-
+        for hbp in heartbeatProcess:
+            send(('kill'), to=hbp)
+        sys.exit()
 
     def receive(msg=('appendFile', token, filename, data), from_=user):
         output('client: received appendFile: filename={0}, token={1}, data={2}'.format(filename, token, data))

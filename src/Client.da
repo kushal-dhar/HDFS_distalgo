@@ -5,6 +5,8 @@ The client interface which acts as a mediator between namenode and users for pro
 import Config
 import time
 import Utils
+import sys
+
 
 """
 Client HeartBeat process to notify the NameNode
@@ -19,7 +21,11 @@ class ClientNodeHeartbeat(process):
         while True:
             # output('sending heartbeat', self)
             send(('heartbeat_client', clientnode), to=namenode)
-            time.sleep(interval)
+            #time.sleep(interval)
+            if await(False):
+                pass
+            elif timeout(interval):
+                pass
 
 
     def receive(msg=('kill')):
@@ -73,6 +79,8 @@ class Client(process):
         self.msgId = 0
         # Namenode with which the client interacts
         self.namenodes = namenodes
+        # HearbeatProcess object to keep track of process responsible for sending heartbeat
+        self.heartbeatProcess = None
 
 
     def run():
@@ -83,9 +91,9 @@ class Client(process):
             setup(hbp, args=(self, namenodes))
         start(heartbeatProcess)
 
+        await(False)
         # Wait for terminate message
-        await(received(('kill')))
-
+        #await(received(('kill')))
 
     """
 	Unique messageId generator
@@ -95,9 +103,12 @@ class Client(process):
         self.msgId += 1
         return messageId
 
-    """
-        Handl API calls for creating a file. Returns true if successful, else false
-    """
+
+    def receive(msg=('kill'), from_=user):
+        for hbp in heartbeatProcess:
+            send(('kill'), to=hbp)
+        exit(0)
+
     def receive(msg=('createFile', token, filename), from_=user):
         output('client: received createFile file={0} from user={1}'.format(filename, user))
         messageId = getNewMessageId()

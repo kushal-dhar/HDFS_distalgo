@@ -4,7 +4,6 @@ import Client
 import Utils
 import pickle
 import random
-import os
 
 
 """
@@ -13,7 +12,7 @@ Users interact with HDFS by sending messages to HDFS Client
 """
 class User(process):
 
-    def setup(pickleFile, counter, doWrite, startcluster):
+    def setup(pickleFile, counter, doKill):
         self.pickleFile = pickleFile
         self.msgId = 0
         self.tokenString = 'token'
@@ -107,33 +106,27 @@ class User(process):
         start(clients)
 
         output("User started: ", counter)
-        if doWrite:
-            createFile('f1')
-            openFile('f1','w')
-            filepath = os.getcwd()
-            filepath += '/dummyFile.txt'
-            file = open(filepath, "rb")
-            string = file.read()
-            output("msg: ",string)
-            writeFile('f1', string)
-            closeFile('f1')
+        createFile('f1')
+        openFile('f1','w')
+        #string = str(counter)*51
+        file = open("/home/kushal/dummyFile.txt", "r")
+        string = file.read()
+        writeFile('f1', string)
+        writeFile('f1', string)
+        #writeFile('f1', string)
+        closeFile('f1')
 
+        openFile('f1','r')
+        data = readFile('f1', 1000)
+        output("readFile data: ", data)
+        closeFile('f1')
 
-        else:
-            createFile('f1')
-            openFile('f1', 'w')
-            filepath = os.getcwd()
-            filepath += '/dummyFile.txt'
-            file = open(filepath, "rb")
-            string = file.read()
-            for i in range(counter):
-                writeFile('f1', string)
-            closeFile('f1')
+        if counter == 5:
+            time.sleep(5)
+            deleteFile('f1')
 
-        # if counter == 5:
-        #     time.sleep(5)
-        #     deleteFile('f1')
-        send(('done',counter), to=startcluster)
+        while(1):
+            continue
 
 
     def receive(msg=('createFile', filename, result)):

@@ -90,7 +90,8 @@ class Lease:
         self.filename  = filename
         self.leaseType = leaseType
         self.prevLeaseTS = None
-        self.readers = 0
+        #self.readers = 0
+        self.readersList = []
 
 
     def __str__(self):
