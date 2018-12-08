@@ -24,7 +24,10 @@ class DataNodeHeartbeat(Thread):
             send(('heartbeat', self.datanode), to=self.namenode)
             time.sleep(self.interval)
 '''
-
+"""
+	During normal operation DataNodes send heartbeats to the NameNode  to  confirm  that  the  DataNode  is  operating  and  the 
+	block  replicas  it  hosts  are  available
+"""
 class DataNodeHeartbeat(process):
     def setup(datanode, namenode, interval=Config.DATANODE_HEARTBEAT_INTERVAL):
         pass
@@ -71,7 +74,11 @@ class DataNode(process):
         self.datanodeId = None
         self.heartbeatThread = None
         self.heartbeatProcess = None
-
+    
+    """
+	During  startup  each  DataNode  connects  to  the  NameNode and performs a 
+	handshake
+    """
     def run():
         output('datanode started: ', self)
         output('supplied namenode: ', namenodes)
@@ -140,8 +147,12 @@ class DataNode(process):
         Sends heartbeat to namenode to signal that this datanode is alive
         """
         pass
-
-
+ 
+    """
+       The  storage  ID  is  assigned to  the
+       DataNode  when  it  registers  with  the  NameNode  for  the  first 
+       time and never changes after that  
+    """
     def readDatanodeId():
         filepath = os.path.join(storageDir, Config.DATANODE_ID_FILE)
         if not os.path.isfile(filepath):
@@ -160,7 +171,8 @@ class DataNode(process):
         output(pid, ' -> ', datanodeId)
         fid.write(str(datanodeId) + '\n' + pid)
         fid.close()
-
+    
+    
     def receive(msg=('datanode_added', proposedId)):
         if proposedId != datanodeId:
             datanodeId = proposedId
@@ -172,6 +184,9 @@ class DataNode(process):
         send(('heartbeat', self), to=namenodes)
 
 
+    """
+        reads  block  contents  from the  DataNode
+    """
     def receive(msg=('readFile_c2d', client, filename, nbytes, messageId)):
         output('datanode: received readFile filename={0}, nbytes={1}'.format(filename, nbytes))
         # TODO : change mode to 'rb'
@@ -185,7 +200,9 @@ class DataNode(process):
         output('datanode: output of readFile filename={0}, nbytes={1}: data={2}'.format(filename, nbytes, data))
         send(('readFile_d2c', filename, nbytes, messageId, data), to=client)
 
-
+    """The client then pipelines data to the chosen DataNodes, which eventually confirm the creation of 
+       the block replicas to the NameNode 
+    """
     def receive(msg=('appendFile_c2d', filename, blockName, blockNumber, data, datanodes_to_write, messageIdTuple, idx, client), from_=sender):
         filepath = os.path.join(self.storageDir, blockName)
         output('received appendFile for filename={0}, filepath={1}'.format(filename, filepath))
@@ -193,6 +210,7 @@ class DataNode(process):
         fid = open(filepath, 'ab')
         fid.write(data)
         fid.close()
+        #If there are no more datanodes to pipeline to
         if idx == len(datanodes_to_write) - 1:
             pass
         else:
@@ -204,16 +222,23 @@ class DataNode(process):
         send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
-
+    """
+     If  the  number  of  existing  replicas  is  one,  HDFS Namenode
+     places the next replica on a different datanode
+    """
     def receive(msg=('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode)):
         output("datanode: receive replicate: block={0}, file={1}, to={2}".format(blockNumber, filename, destination_datanode))
         blockFileNameToRead = os.path.join(self.storageDir, blockFileName)
         fid = open(blockFileNameToRead, 'rb')
         data = fid.read()
         fid.close()
-        # TODO: implement this method
+        # replicate it on another datanode
         send(('replicateBlock_d2d', filename, blockNumber, blockFileName, data), to=destination_datanode)
 
+    """
+       A datanode replicates the block on another datanode to ensure the repliction factor is 2.This would be useful
+       when a datanode goes down.
+    """
     def receive(msg=('replicateBlock_d2d', filename, blockNumber, blockFileName, data)):
         storing_filename = os.path.join(self.storageDir, blockFileName)
         output("datanode: replicateBlock_d2d: block={0}, file={1}, at={2}".format(blockNumber, filename, storing_filename))
@@ -223,7 +248,9 @@ class DataNode(process):
         bytesWritten = len(data)
         send(('appendFile_d2n', filename, blockNumber, bytesWritten, self.datanodeId), to=namenodes)
 
-
+    """
+        Delete block of  file
+    """
     def receive(msg=('deleteBlock', blockname)):
         filepath = os.path.join(self.storageDir, blockname)
         output('received deleteblock for block: %s from NameNode' %(blockname))

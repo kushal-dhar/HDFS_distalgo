@@ -1,3 +1,6 @@
+"""
+   A common config file to hold hard coded values used all across the file-system
+"""
 import os, shutil
 
 DATABASE_NAME = 'hdfs'

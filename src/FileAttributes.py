@@ -80,7 +80,10 @@ class Inode:
 
 class Lease:
     """
-    We need to store meta-data about the lease taken by the user on thd file
+    The  HDFS  client  that  opens  a  file  for  writing  is  granted  a lease for the file;
+    no other client can write to the file. The writ-ing  client  periodically  renews
+    the  lease  by  sending  a  heartbeat to the NameNode
+    We need to store meta-data about the lease taken by the user on the file
     """
     def __init__(self, client, filename,leaseType):
         self.client = client

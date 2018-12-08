@@ -43,6 +43,10 @@ class BlockInfo:
 
 
     def getLastBlockSize(self):
+        """
+		Gets the size of the latest block of the file
+                Needed for  appending data to this block
+        """
         if len(self.dataBlocks) == 0:
             # Means that no blocks are written to file yet
             return None
@@ -69,6 +73,9 @@ class BlockInfo:
 
 
     def addAppendInfo(self, blockNumber, bytesWritten, datanodeId):
+        """
+	    Add meta-data details for the block written
+	"""
         while blockNumber >= len(self.dataBlocks):
             bnum = len(self.dataBlocks)
             bpath = self.filename + '.block.' + str(bnum)
@@ -77,11 +84,17 @@ class BlockInfo:
         self.numBlocks = len(self.dataBlocks)
 
     def getLastBlockDatanodeIds(self):
+        """
+		Get the datanode where the last block is written
+        """
         if len(self.dataBlocks) == 0:
             return ()
         return self.dataBlocks[-1].getDatanodeIds()
 
     def getDatanodeIdsForBlock(self, blockNumber):
+        """
+             Get the datanode where the block in question is written
+        """
         # TODO - Check Index out of bounds error
         return self.dataBlocks[blockNumber].getDatanodeIds()
 
@@ -94,9 +107,9 @@ Databock information storing object
 """
 class DataBlock:
     def __init__(self, mblockNumber, mblockPath, mblockSize=0):
-        self.blockNumber = mblockNumber
-        self.blockPath = mblockPath
-        self.blockSize = mblockSize
+        self.blockNumber = mblockNumber # The number in sequence of blocks of the file
+        self.blockPath = mblockPath  # The  path in datanode where the block is stored
+        self.blockSize = mblockSize  # Size of the block
         self.datanodeSizeInfo = dict()
         self.checksumPath = mblockPath + Config.CHECKSUM_SUFFIX
         self.metadata = None
