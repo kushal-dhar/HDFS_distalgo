@@ -6,11 +6,15 @@ import random
 import Utils
 
 
-"""
-LeaseMonitor process to monitor Lease Timeout
-"""
+
 class LeaseMonitor(process):
+    """
+    LeaseMonitor process to monitor Lease Timeout for clients
+    """
     def setup(namenode):
+        """
+        This process needs to communicate with namenode to get client's latest heartbeat times
+        """
         self.hard_limit = Config.CLIENT_HARD_LIMIT   #300 seconds for hard_limit of each lease
         self.namenode = namenode
 
@@ -21,11 +25,14 @@ class LeaseMonitor(process):
 
 
     def receive(msg=('leaseInfo', clientTimeStamp, file2leaseobj)):
+        """
+        Message handler when namenode sends leaseInfo message
+        """
         output("Received leaseinfo from NameNode")
         currentTime = time.time()
         for eachFile in file2leaseobj:
             output("lease: ",file2leaseobj[eachFile], clientTimeStamp)
-            #If the writing/reading process does not send a hard limit within the hard_limit, end it
+            #If the writing/reading process does not send a heartbeat within the hard_limit, revoke lease
             if currentTime - clientTimeStamp[file2leaseobj[eachFile].client] >= hard_limit:
                 output("file2leaseobj: ",file2leaseobj)
                 send(('closeFile', Config.W_LEASE, None, file2leaseobj[eachFile].filename, -1), to=namenode)
@@ -36,18 +43,25 @@ class LeaseMonitor(process):
         send(('getLeaseInfo', self), to=namenode)
 
 
-"""
-DatanodeMonitor process to monitor datanode health using heartbeats
-"""
+
 class DatanodeMonitor(process):
+    """
+    DatanodeMonitor process to monitor datanode health using heartbeats
+    """
     def setup(namenode):
-        self.timeoutLimit = Config.DATANODE_HEARTBEAT_TIMEOUT   #600 seconds
+        """
+        This process needs to communicate with namenode to get datanodes' latest heartbeat times
+        """
+        self.timeoutLimit = Config.DATANODE_HEARTBEAT_TIMEOUT   #600 seconds according to paper, using a smaller timeout in our system
         self.checkInterval = Config.DATANODE_HEARTBEAT_CHECK_INTERVAL
 
     def run():
         output("Datanode Monitor process started")
         #send(('getLeaseInfo', self), to=namenode)
         while(True):
+            """
+            Use await instead of sleep because if sleep is used, 'datanodeHeartbeatInfo' is never processed!
+            """
             #time.sleep(self.checkInterval)
             if await(received(('kill'))):
                 output("DatanodeMonitor: received kill")
@@ -59,6 +73,9 @@ class DatanodeMonitor(process):
 
 
     def receive(msg=('datanodeHeartbeatInfo', datanodeHeartbeatTime, datanodeId2pid)):
+        """
+        Message handler when namenode sends datanodeHeartbeatInfo message containing latest heartbeat times of all datanodes
+        """
         #output("DatanodeMonitor: Received datanodeHeartbeatInfo from NameNode")
         currentTime = time.time()
         dead_datanodes = []
@@ -66,8 +83,10 @@ class DatanodeMonitor(process):
             # If a datanode never sent heartbeat, assume it is not running
             if datanodeId not in datanodeHeartbeatTime:
                 dead_datanodes.append(datanodeId)
+            # If datanode did not send heartbeat for timeoutLimit, assume it is not running
             if currentTime - datanodeHeartbeatTime[datanodeId] >= self.timeoutLimit:
                 dead_datanodes.append(datanodeId)
+        # If no dead datanodes detected, do nothing
         if len(dead_datanodes) == 0:
             return
         output("datanodeHeartbeatInfo: found dead datanodes: ", dead_datanodes)
@@ -76,31 +95,23 @@ class DatanodeMonitor(process):
 
 
 
-"""
-Namenode process in HDFS cluster
-The   NameNode   maintains   the namespace  tree  and  
-the  mapping  of  file  blocks  to  DataNodes 
-"""
+
 class NameNode(process):
-#class NameNode():
     """
-    def __init__():
-        datanodes = None
-        # dict: filename -> Inode
-        inodes = None
-        # dict: filename -> BlockInfo
-        blockinfo = None
-        pass
+    Namenode process in HDFS cluster
+    The   NameNode   maintains   the namespace  tree  and
+    the  mapping  of  file  blocks  to  DataNodes
     """
+
     def setup():
-        self.datanodeId2pid = dict() #Mapping of datanode to pid
-        self.pid2datanodeId = dict() #Reverse mapping pid to datanode
-        self.nextDatanodeId = 1
-        self.file2leasereq = dict() #Write request queue for a file
-        self.file2leaseobj = dict() #Leaseobject mapping with file
+        self.datanodeId2pid = dict() #Mapping of datanodeId to pid
+        self.pid2datanodeId = dict() #Reverse mapping pid to datanodeId
+        self.nextDatanodeId = 1 # datanodeId to be assigned to next new datanode
+        self.file2leasereq = dict() # Mapping of filename -> Write request queue for a file
+        self.file2leaseobj = dict() # Mapping of filename -> Leaseobject of file
         # dict: filename -> Inode
-        self.inodes = dict() #Inodes to filename mappng
-        self.clientTimeStamp = dict() #Timestamp of the heartbeats of the client
+        self.inodes = dict() # filename to Inodes mappng
+        self.clientTimeStamp = dict() #Timestamp of the heartbeats of the clients
 
         # dict: filename -> BlockInfo
         self.blockinfo = dict() #BlockInfo objects per file.
@@ -108,16 +119,18 @@ class NameNode(process):
         self.mapLock = threading.Lock()
         self.counterLock = threading.Lock()
         self.locks = [self.mapLock, self.counterLock]
-        self.datanodeHeartbeatTime = dict()
+        self.datanodeHeartbeatTime = dict() #Timestamp of the heartbeats of the datanodes
 
 
     def run():
         output('namenode running: ', self)
+        # spawn lease monitor process
         monitorProcess = new(LeaseMonitor, num=1, at=Config.NAMENODE_LOCATION)
         for mp in monitorProcess:
             setup(mp, args=(self,))
         start(monitorProcess)
 
+        # spawn datanode heartbeat monitor process
         datanodeMonitorProcess = new(DatanodeMonitor, num=1, at=Config.NAMENODE_LOCATION)
         for dp in datanodeMonitorProcess:
             setup(dp, args=(self,))
@@ -129,6 +142,7 @@ class NameNode(process):
     def nominateDataNodes(filename, count=3):
         """
         Nominates `count` datanodes for storing a new block of a file
+        Implemented in appendFile message handler
         """
         pass
 
@@ -136,6 +150,7 @@ class NameNode(process):
     def getDatanodesOfBlock(filename, blockNumber):
         """
         Returns the datanodes at which the block `blockNumber` of `filename` is located
+
         """
         pass
 
@@ -144,6 +159,7 @@ class NameNode(process):
         """
         Returns the current image of namesystem.
         It containes blockinfo and inode data.
+        To be implemented when dealing with namenode failures
         """
         pass
 
@@ -152,6 +168,7 @@ class NameNode(process):
         """
         Performs handshake and verification of datanode.
         After this passes, datanode is available for storing data blocks.
+        Implemented in add_datanode message handler
         """
         pass
 
@@ -160,6 +177,7 @@ class NameNode(process):
         """
         Analyses the block report sent by datanode.
         Done asynchronously.
+        To be implemented when dealing with namenode failures
         """
         pass
 
@@ -168,6 +186,7 @@ class NameNode(process):
         """
         Analyse the heartbeat message sent by datanode.
         Replies to the heartbeat and sends further instructions.
+        Handled in datanode heartbeat message
         """
         pass
 
@@ -176,6 +195,7 @@ class NameNode(process):
         """
         Takes the necessary steps when a datanode is presumed to be down.
         Schedules replciation of the blocks which the datanode was storing.
+        Handled in datanode_dead message handler
         """
         pass
 
@@ -187,19 +207,20 @@ class NameNode(process):
         - schedule deletion of over replicated blocks
         - take action when storage on datanode is running out
         - do garbage collection
+        * To be implemented when deading with namenode failures
         """
         pass
 
-    """The  HDFS  client  that  opens  a  file  for  writing  is  granted  a 
-       lease for the file; no other client can write to the file. The writ-
-       ing  client  periodically  renews  the  lease  by  sending  a  heartbeat 
-       to the NameNode
-       For writers we are just increasing the read count.
-    """
+
     def grantLease(client, req_info):
         """
+        The  HDFS  client  that  opens  a  file  for  writing  is  granted  a
+        lease for the file; no other client can write to the file. The writ-
+        ing  client  periodically  renews  the  lease  by  sending  a  heartbeat
+        to the NameNode
         Grants lease of `filename` to the client.
         """
+        # req_info is tuple of (filename, mode, client)
         if(req_info[0] not in self.file2leaseobj):
              leaseObj = Lease(client, req_info[0],req_info[1])
              if req_info[1] == Config.R_LEASE:
@@ -208,8 +229,8 @@ class NameNode(process):
              self.file2leaseobj[req_info[0]] =  leaseObj
         else:
             leaseObj = self.file2leaseobj[req_info[0]]
-            # If mode is READERS, increase READERS count otherwise make leaseType as WRITE_LEASE
-            # so that during deletion, we don't delete incase someone is reading or writing
+            # If mode is READERS, add to readers queue else add to writers queue
+            # This bookkeeping is done so that during deletion, we don't delete incase someone is reading or writing
             if req_info[1] == Config.R_LEASE:
                 #leaseObj.readers += 1
                 leaseObj.readersList.append(client)
@@ -220,12 +241,11 @@ class NameNode(process):
         output("Lease acquired for file: %s by client: %s" %(req_info[0], client))
         send(('openFile', req_info[0], req_info[1], req_info[2], True), to=client)
 
-    """
-        
-    """
+
     def handleCorruptedBlock(filename, blockNumber):
         """
         Performs the necessary actions when it is notified that a block has been corrupted
+        To be implemented when checksum is supported
         """
         pass
 
@@ -233,22 +253,26 @@ class NameNode(process):
     def receive(msg=('hello')):
         output('handler: received hello from someone')
 
-    """
-       DataNode registers with the NameNode
-    """
+
     def receive(msg=('add_datanode', datanode, proposedId)):
+        """
+        DataNode registers with the NameNode by performing handshake
+        """
         output('received add_datanode: ', datanode)
+        # New datanode
         if proposedId is None:
             acquireLock(counterLock)
             pid2datanodeId[datanode] = self.nextDatanodeId
             datanodeId2pid[self.nextDatanodeId] = datanode
             self.nextDatanodeId += 1
             releaseLock(counterLock)
+        # Old datanode which was detected as failed, but now comes back up
         elif proposedId not in datanodeId2pid:
             acquireLock(mapLock)
             pid2datanodeId[datanode] = proposedId
             datanodeId2pid[proposedId] = datanode
             releaseLock(mapLock)
+        # Old datanode which was not yet detected as failed (came back up before timeout), but now comes back up
         else:
             oldPid = datanodeId2pid[proposedId]
             acquireLock(mapLock)
@@ -262,6 +286,9 @@ class NameNode(process):
 
 
     def receive(msg=('heartbeat_datanode', datanode)):
+        """
+        Processes heartbeat message sent by datanode
+        """
         # datanode is pid of sending datanode
         #output('received heartbeat from datanode: ', datanode)
         currentTime = time.time()
@@ -272,13 +299,18 @@ class NameNode(process):
 
 
     def receive(msg=('heartbeat_client',clientnode)):
+        """
+        Processes heartbeat message sent by client
+        """
         #output('received hearbeat from clientnode: ', clientnode)
         clientTimeStamp[clientnode] = time.time()
 
-    """
-    Define the metadata for the newly created file
-    """
+
     def receive(msg=('createFile', client, filename, messageId)):
+        """
+        Message handler for createFile request.
+        Initialize the metadata for the newly created file
+        """
         output('received create file ', filename, ' request from ', client)
         if filename in self.inodes:
             send(('createFile', filename, messageId, True), to=client)
@@ -288,10 +320,12 @@ class NameNode(process):
         #output('sending to client: ', ('createFile', filename, messageId, True))
         send(('createFile', filename, messageId, True), to=client)
 
-    """
-    Serve the map of the files present in the Namenode
-    """
+
     def receive(msg=('listFiles', client, messageId)):
+        """
+        Message handler for listFiles request
+        Serves the list of the files present in the Namenode
+        """
         output('received listFiles request from : ', client)
         files = tuple([filename for filename in inodes])
 
@@ -299,11 +333,13 @@ class NameNode(process):
         send(('listFiles', messageId, files), to=client)
 
 
-    """
-        The  HDFS  client  that  opens  a  file  for  writing  is  granted  a 
-        lease for the file
-    """
+
     def receive(msg=('openFile', mode, client, filename, messageId)):
+        """
+        Message handler for openFile request
+        The  HDFS  client  that  opens  a  file  for  writing  is  granted  a
+        lease for the file.
+        """
         output('received openFile request from : ', client)
         #Return false if the file does not exist
         if filename not in self.inodes:
@@ -315,6 +351,7 @@ class NameNode(process):
             if(mode  == Config.R_LEASE):
                 grantLease(client, req_info)
             else:
+                # Add this request to queue
                 if(filename in self.file2leasereq and len(file2leasereq[filename]) > 0):
                    self.file2leasereq[filename].append(req_info)
                    return
@@ -329,12 +366,15 @@ class NameNode(process):
         send(('openFile', filename, mode, messageId, result), to=client)
         output("Message sent from Namenode to client")
 
-    """
-        An HDFS client wanting to 
-        read a file first contacts the NameNode for the locations of data 
-        blocks  comprising  the  file 
-    """
+
     def receive(msg=('readFile_c2n', client, filename, blockNumber, nbytes, messageId)):
+        """
+        Message handler for readFile request.
+
+        An HDFS client wanting to
+        read a file first contacts the NameNode for the locations of data
+        blocks  comprising  the  file
+        """
         output('received readFile request from {0}: filename={1}, blockNumber={2}, nbytes={3}'.format(client, filename, blockNumber, nbytes))
 
         datanodes_hosting_ids = self.blockinfo[filename].getDatanodeIdsForBlock(blockNumber)
@@ -350,14 +390,16 @@ class NameNode(process):
         output('namenode: result of readfile: ', result)
         send(('readFile_n2c', filename, blockNumber, messageId, result), to=client)
 
-    """
-         When the file is closed, the lease is revoked
-    """
+
     def receive(msg=('closeFile', mode, client, filename, messageId)):
+        """
+        Message handler for closeFile request
+        When the file is closed, the lease is revoked
+        """
         output('received closeFile request from : ', client)
         output('releasing lease for file: ',filename)
         if (mode == Config.R_LEASE):
-            # Decrease the number of readers count for this file
+            # Remove client from read queue
             leaseObj = file2leaseobj[filename]
             #leaseObj.readers -= 1
             leaseObj.readersList.remove(client)
@@ -365,24 +407,26 @@ class NameNode(process):
             send(('closeFile', filename, mode, messageId, True), to=client)
         else:
             self.file2leasereq[filename].pop(0)
+            # Grant lease to next client in queue
             if len(file2leasereq[filename]) > 0:
                 req_info =  self.file2leasereq[filename][0]
                 send(('closeFile', filename, mode, messageId, True), to=client)
                 grantLease(req_info[3],req_info)
                 output("Closed File: ",filename)
+            # No further write request for this file.
             else:
                 leaseObj = file2leaseobj[filename]
                 leaseObj.leaseType = None
                 self.file2leaseobj[filename] = leaseObj
                 send(('closeFile', filename, mode, messageId, True), to=client)
                 output("Closed File: ",filename)
-            """
-            TO-DO : Add the timestamp for latest lease
-            """
-    """
-        Check if there are readers on this file or if a lease is taken.If not delete is suvvessful
-    """
+
+
     def receive(msg=('deleteFile', client, filename, messageId)):
+        """
+        Message handler for deleteFile request.
+        Check if there are readers on this file or if a lease is taken. If not delete is successful
+        """
         output('received deleteFile request from: %s for file: %s' %(client, filename))
         leaseObj = file2leaseobj[filename]
         # If there are no reader and writer process working on this file, then delete this file
@@ -404,15 +448,22 @@ class NameNode(process):
 
 
     def receive(msg=('getLeaseInfo', leaseMonitor)):
+        """
+        Process message from LeaseMonitor process.
+        Provide active leases and client heartbeat timestamps to the leasemonitor process
+        """
         output('received getLeaseInfo from LeaseMonitor')
         send(('leaseInfo', clientTimeStamp, file2leaseobj), to=leaseMonitor)
 
-    """
-        When  writing  data,  the  cli-
-        ent  requests  the  NameNode  to  nominate  a  suite  of  three 
-        DataNodes  to  host  the  block  replica        
-    """
+
     def receive(msg=('appendFile_c2n', client, filename, messageId)):
+        """
+        Message handler for appendFile request.
+
+        When  writing  data,  the  cli-
+        ent  requests  the  NameNode  to  nominate  a  suite  of  three
+        DataNodes  to  host  the  block  replica.
+        """
         output('received appendFile request from {0}: filename={1}, messageId={2}'.format(client, filename, messageId))
 
         blockNumber, bytesToWrite, newDatanodeToWrite = self.blockinfo[filename].getNewAppendInfo()
@@ -434,7 +485,6 @@ class NameNode(process):
             #output("namenode: appending to last block for append to filename={0}".format(filename))
             selectedDatanodeIds = self.blockinfo[filename].getLastBlockDatanodeIds()
             # Get PID from datanode Id
-            # TODO - handle datanode failure - done
             selectedDatanodes = []
             # Find datanodes which are running
             for d in selectedDatanodeIds:
@@ -449,6 +499,10 @@ class NameNode(process):
 
 
     def receive(msg=('appendFile_d2n', filename, blockNumber, bytesWritten, datanodeId)):
+        """
+        Message handler when datanode notifies namenode that a block has been successfully written to datanode.
+        NameNode adds this datanode in the list of datanodes which host this file block
+        """
         #output("namenode: received appendFile confirmation for filename={0} from datanode={1}".format(filename, datanodeId))
         # update this append information in blockinfo
         self.blockinfo[filename].addAppendInfo(blockNumber, bytesWritten, datanodeId)
@@ -456,20 +510,29 @@ class NameNode(process):
 
 
     def receive(msg=('numBlocksInFile', filename, messageId), from_= client):
+        """
+        Returns number of blocks in a file to client.
+        Client calls this before it starts to read blocks of a file
+        """
         nBlocks = self.blockinfo[filename].getNumberOfBlocks()
         send(('numBlocksInFile', filename, messageId, nBlocks), to=client)
 
     def receive(msg=('provideDatanodeHeartbeatInfo'), from_=datanodeHeartbeatMonitorProcess):
+        """
+        Provide latest heartbeat times of datanode to datanode heartbeat monitor process.
+        That process then detects datanode failures
+        """
         #output("namenode: received provideDatanodeHeartbeatInfo")
         send(('datanodeHeartbeatInfo', self.datanodeHeartbeatTime, self.datanodeId2pid), to=datanodeHeartbeatMonitorProcess)
 
-    """
-        If  the  number  of  existing  replicas  is  one,  HDFS namenode 
-        places the next replica on a different namenode
-    """
+
     def receive(msg=('datanodesDead', dead_datanodes)):
+        """
+        Message handler when namenode detects some datanodes are down.
+        - Replicates the blocks whose replication factor becomes less than the defined value
+        """
         output("namenode: detected datanode failure at datanodeIds={0}".format(dead_datanodes))
-        #remove it from th datanode to id map
+        #remove it from the datanode to id map
         for dn in dead_datanodes:
             pid = self.datanodeId2pid[dn]
             acquireLock(mapLock)
@@ -481,16 +544,20 @@ class NameNode(process):
         dead_datanodes = set(dead_datanodes)
         alive_datanodes = set(dn for dn in self.datanodeId2pid.keys())
         output("namenode: identified alive datanodes: ", alive_datanodes)
+        # Go over each file
         for filename in self.blockinfo.keys():
             nblocks = self.blockinfo[filename].getNumberOfBlocks()
+            # Go over each block of a file
             for blockNumber in range(nblocks):
                 storing_datanodes = set(self.blockinfo[filename].getDatanodeIdsForBlock(blockNumber))
                 storing_datanodes_dead = storing_datanodes.intersection(dead_datanodes)
                 storing_datanodes_live = storing_datanodes.difference(storing_datanodes_dead)
                 output("namenode: storing={0}, dead={1}, live={2}".format(storing_datanodes, storing_datanodes_dead, storing_datanodes_live))
+                # Check current replication factor of a block
                 if len(storing_datanodes_live) >= Config.BLOCK_REPLICATION_FACTOR:
                     output("block already replicated more than replicator_factor times")
                     continue
+                # All datanodes storing this block are down. Nothing can be done now.
                 if len(storing_datanodes_live) == 0:
                     output("all datanodes for storing block={0} for file={1} are dead!!!".format(blockNumber, filename))
                     continue
@@ -498,7 +565,7 @@ class NameNode(process):
                 if len(candidate_datanodes) == 0:
                     output("all live datanodes already stroe block={0} for file={1}".format(blockNumber, filename))
                     continue
-                #If replication factor is 1 then we send the block to a datanode to write it on a destination datanode.
+                # Replicate this block from a source datanode to a destination datanode
                 destination_datanode = random.sample(candidate_datanodes, 1)
                 destination_datanode = self.datanodeId2pid[destination_datanode[0]]
                 source_datanode = random.sample(storing_datanodes_live, 1)
@@ -511,6 +578,10 @@ class NameNode(process):
 
 
     def acquireLock(lockObj):
+        """
+        Resource ordering for deadlock prevention.
+        This method acquires lock on an object.
+        """
         for obj in locks:
             if obj != lockObj:
                 obj.acquire()
@@ -521,6 +592,10 @@ class NameNode(process):
 
 
     def releaseLock(lockObj):
+        """
+        Resource ordering for deadlock prevention.
+        This method releases lock on an object.
+        """
         lockFound = False
         for obj in reversed(locks):
             if obj != lockObj and not lockFound:

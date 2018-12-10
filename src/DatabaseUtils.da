@@ -1,3 +1,10 @@
+"""
+Performs database operations using MySQL from Python code.
+To be used when NameNode persistently wants to store all its data.
+Not finally used in current implementation.
+"""
+
+
 import mysql.connector
 import DatabaseConfig
 import sys

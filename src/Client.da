@@ -1,6 +1,6 @@
 """
-The client interface which acts as a mediator between namenode and users for processing requests
-
+The client interface which acts as a mediator between namenode and users for processing requests.
+It supports create, list, open, read, write, close, delete file operations
 """
 import Config
 import time
@@ -23,6 +23,9 @@ class ClientNodeHeartbeat(process):
             # output('sending heartbeat', self)
             send(('heartbeat_client', clientnode), to=namenode)
             #time.sleep(interval)
+            # Use await instead of sleep because if we use sleep,
+            # the kill message is never processed and the process never ends
+            # Took us time to actually debug this!
             if await(False):
                 pass
             elif timeout(interval):
@@ -30,40 +33,12 @@ class ClientNodeHeartbeat(process):
 
 
     def receive(msg=('kill')):
+        """
+        On receiving kill message, terminate the heartbeat process
+        :return: None
+        """
         output('received kill')
         exit(0)
-
-
-"""
-Client process to accept multiple read and write requests
-"""
-'''
-class UserReq_Handle(process):
-
-    def setup(filename,mode,messageId,token,user):
-        self.filename = filename #name of filename to be edited
-        self.mode = mode #Opening the file in read or write 'mode'
-        self.messageId = messageId #Unique number identifying every message
-        self.token = token #Token for differenciating operations to the same file
-        self.user = user #User process performing the operation to the file system
-
-
-    def run():
-        output('awaiting to aquire lease ')
-        output("awaiting for args: ",filename, mode, messageId)
-        await(some(received(('openFile', _filename, _mode, _messageId, _))))
-        result = setof(r, received(('openFile', _filename, _mode, _messageId, r)))
-        output("result: ", result)
-        for r in result:
-            pass
-        output('client: received result of open from namenode for file: ', filename, ' result= ', r)
-        send(('openFile', mode, token, filename, r), to=user)
-        exit(0)
-
-    def receive(msg=('openFile', filename, mode, messageId, result)):
-        output("result: ", filename, mode, messageId, result)
-        exit(0)
-'''
 
 
 """
@@ -75,6 +50,9 @@ Users interact with HDFS by sending messages to Client
 class Client(process):
 
     def setup(namenodes):
+        """
+        setup requires pid of namenode. Client interacts with namenode for all queries
+        """
         # msgId is used with all messages sent to namenode to differentiate between different user requests
         # For example, a user can send 2 request for creating the same file. msgId differentiates between these 2 requests
         self.msgId = 0
@@ -96,21 +74,33 @@ class Client(process):
         # Wait for terminate message
         #await(received(('kill')))
 
-    """
-	Unique messageId generator
-    """
+
     def getNewMessageId():
+        """
+        Unique messageId generator
+        """
         messageId = self.msgId
         self.msgId += 1
         return messageId
 
 
     def receive(msg=('kill'), from_=user):
+        """
+        terminate message handler.
+        sends terimnate message to heartbeat process, then calls exit on itself
+        :param from_:
+        :return:
+        """
         for hbp in heartbeatProcess:
             send(('kill'), to=hbp)
         exit(0)
 
     def receive(msg=('createFile', token, filename), from_=user):
+        """
+        createFile message handler:
+        sends create request to namenode, then waits for response from namenode
+        after receiving reply from namenode, returns the result back to user
+        """
         output('client: received createFile file={0} from user={1}'.format(filename, user))
         messageId = getNewMessageId()
         output('client: sending createFile msg with id={0} to namenode'.format(messageId))
@@ -123,10 +113,14 @@ class Client(process):
         output('client: received result from namenode ', r, ' for filename ', filename)
         send(('createFile', token, filename, r), to=user)
 
-    """
-       Handles request to list files in our filesystem, True if successful, else return false
-    """
+
     def receive(msg=('listFiles', token), from_=user):
+        """
+        Handles request to list files in our filesystem.
+        Requests namenode for list of files, then waits for response from namenode
+        after receiving reply from namenode, returns the result back to user.
+        The result is files in a tuple
+        """
         output('client: received listFiles from user:', user)
         messageId = getNewMessageId()
         output('sending listFiles request to namenode with msgId: ', messageId)
@@ -140,10 +134,14 @@ class Client(process):
         output('received listFiles result from namenode ', r)
         send(('listFiles', token, r), to=user)
 
-    """
-	Handles request to aquire lease for the user before it attempts to read or write,Returns true if successfull,else returns false
-    """
+
     def receive(msg=('openFile', mode, token, filename), from_=user):
+        """
+        Handles request to open a file is specified mode.
+        Sends the request to namenode, then waits for reply.
+        In case of write, the wait depends on size of request queue for the file.
+        The reply is True if the open operation is successful and the client is granted the lease, False otherwise
+        """
         output('client: received openFile: filename=', filename, ', token=', token)
         messageId = getNewMessageId()
         output('sending open request to namenode for: ', filename, ' with msgId: ', messageId)
@@ -159,30 +157,33 @@ class Client(process):
         output('client: received result of open from namenode for file: ', filename, ' result= ', r)
         send(('openFile', mode, token, filename, r), to=user)
 
-    """
-	Handles request to forgo the lease once the user has done writing
-    """
+
     def receive(msg=('closeFile', mode, token, filename), from_=user):
+        """
+        Handles request to close the opened file
+        Notifies namenode revoke the client's lease on the file
+        """
         output('client: received closeFile: filename=', filename, ', token=', token)
         messageId = getNewMessageId()
         output('sending close request to namenode for: ', filename, ' with msgId: ', messageId)
         send(('closeFile', mode, self, filename, messageId), to=namenodes)
         await(some(received(('closeFile', _filename, _mode, _messageId, True))))
         result = setof(r, received(('closeFile', _filename, _mode, _messageId, r)))
-        for r in result:
-            pass
+        r = Utils.getOneFromSet(result)
         output('client: received result of close from namenode for file: ', filename, ' result= ', r)
         send(('closeFile', mode, token, filename, r), to=user)
 
-    """
-	When an application reads a file, the HDFS client first asks 
-	the  NameNode  for  the  list  of  DataNodes  that  host  replicas  of 
-	the blocks of the file. It then contacts a DataNode directly and 
-	requests the transfer of the desired block
-    """
+
     def receive(msg=('readFile', token, filename, mblockNumber, nbytes), from_=user):
+        """
+        Handles readFile request.
+        When an application reads a file, the HDFS client first asks
+        the  NameNode  for  the  list  of  DataNodes  that  host  replicas  of
+        the blocks of the file. It then contacts a DataNode directly and
+        requests the transfer of the desired block
+        """
         output('client: received readFile: filename={0}, blockNumber={1}, nbytes={2}, token={3}'.format(filename, mblockNumber, nbytes, token))
-        # TODO: get file size before reading, or ask for number of blocks from namenode
+
         bytes_read = 0
         blockNumber = 0
         data = b''
@@ -197,23 +198,6 @@ class Client(process):
             messageId = getNewMessageId()
             send(('readFile_c2n', self, filename, blockNumber, nbytes, messageId), to=namenodes)
             await(some(received(('readFile_n2c', _filename, _blockNumber, _messageId, _))))
-
-            """
-        output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,r))
-            # Client contacts one of datanode for data
-            # TODO - handle case when r in None
-        datanodeToContact = r[0][0]
-        filenameAtDatanode = r[0][1]
-        messageId = getNewMessageId()
-        send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
-
-        await(some(received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, _))))
-        result = setof(r, received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, r) ))
-        read_data = Utils.getOneFromSet(result)
-        output('client: received data from datanode for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
-                                                                                                  read_data))
-        send(('readFile', token, filename, blockNumber, nbytes, read_data), to=user)
-            """
             result = setof(r, received(('readFile_n2c', _filename, _blockNumber, _messageId, r)))
             # r is the list of (datanodes, location of block) which store the block client wants to read
             r = Utils.getOneFromSet(result)
@@ -221,7 +205,6 @@ class Client(process):
             output('client: received list of datanodes for filename={0}, blockNumber={1}: {2}'.format(filename, blockNumber,
                                                                                                       r))
             # Client contacts one of datanode for data
-            # TODO - handle case when r in None
             filenameAtDatanode, datanodesToContact = r
             if len(datanodesToContact) == 0:
                 output('client: all datanodes hosting block={0} of file={1} are dead'.format(blockNumber, filename))
@@ -229,10 +212,13 @@ class Client(process):
                 send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
                 return
             # Choose one datanode at random to read
+            # According to paper, client contacts the datanode which is closest,
+            # For now, contact any random datanode
             datanodeToContact = random.sample(datanodesToContact, 1)[0]
             messageId = getNewMessageId()
+            # readFile_c2d specifies that this message is from client to datanode
             send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
-
+            # readFile_d2c specifies that this message is from datanode to namenode
             await(some(received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, _))))
             result = setof(r, received(('readFile_d2c', _filenameAtDatanode, _nbytes, _messageId, r) ))
             read_data = Utils.getOneFromSet(result)
@@ -247,25 +233,31 @@ class Client(process):
         output("client: sending= ", ('readFile', token, filename, mblockNumber, nbytes, return_data))
         send(('readFile', token, filename, mblockNumber, nbytes, return_data), to=user)
 
-    """
-	When a client writes, it  first  asks  the  NameNode  to  choose  DataNodes  to  host  
-        replicas of the first block of the file. The client organizes a pipeline 
-        from  node -to-node  and  sends  the  data.  When  the  first  block  is 
-        filled,  the  client  requests  new DataNodes  to  be  chosen  to  host 
-        replicas of the next block.
-    """
+
     def receive(msg=('appendFile', token, filename, data), from_=user):
+        """
+        When a client writes, it  first  asks  the  NameNode  to  choose  DataNodes  to  host
+        replicas of the first block of the file. The client organizes a pipeline
+        from  node -to-node  and  sends  the  data.  When  the  first  block  is
+        filled,  the  client  requests  new DataNodes  to  be  chosen  to  host
+        replicas of the next block.
+        """
         output('client: received appendFile: filename={0}, token={1}, data={2}'.format(filename, token, data))
         dataWriteIndex = 0
+        # The input data is divided into blocks
+        # Each block is written independently of the other
+        # Blocks are written sequentially
         while dataWriteIndex < len(data):
             messageId = getNewMessageId()
+            # Ask namenode to nominate set of datanodes to store data
+            # Namenode also tells how much data should be written in each block
             send(('appendFile_c2n', self, filename, messageId), to=namenodes)
             await(some(received(('appendFile_n2c', _filename, _messageId, _,))))
             result = setof(r, received(('appendFile_n2c', _filename, _messageId, r)))
             datanodes_to_write, blockName, blockSize, blockNumber = Utils.getOneFromSet(result)
             output("client: received nominated datanodes for filename={0}: {1}, blockName={2}, nbytes={3}".format(filename, datanodes_to_write, blockName, blockSize))
 
-            # If namenode nominates no datanode, send False to user
+            # If namenode nominates no datanode, send False to user as the write Failed
             if len(datanodes_to_write) == 0:
                 output('client: namenode nominated no datanode to append to file: ', filename)
                 send(('appendFile', token, filename, False), to=user)
@@ -276,13 +268,14 @@ class Client(process):
             for d in datanodes_to_write:
                 messageIdList.append(getNewMessageId())
                 messageIdDict[d] = messageIdList[-1]
-            # TODO - do setup/handshake with all datanodes before writing!!!
+
             messageIdTuple = tuple(messageIdList)
             dataWriteEndIndex = min(dataWriteIndex + blockSize, len(data))
             dataPacket = data[dataWriteIndex:dataWriteEndIndex]
             dataWriteIndex = dataWriteEndIndex
+            # Write the data to datanodes in pipeline fashion
             send(('appendFile_c2d', filename, blockName, blockNumber, dataPacket, datanodes_to_write, messageIdTuple, 0, self), to=datanodes_to_write[0])
-            # TODO - await for all datanodes to finish. Then notify user
+            # await for all datanodes to finish. Then notify user
             for d in datanodes_to_write:
                 await( received(('appendFile_d2c', messageIdDict[d])))
             #await(each d in datanodes_to_write, has= received(('appendFile_d2c', messageIdDict[d])))
@@ -291,15 +284,16 @@ class Client(process):
         send(('appendFile', token, filename, True), to=user)
 
 
-    """
-	Handles requests to delete a file, Returns true if successful and false if some other user is editing the file
-    """
+
     def receive(msg=('deleteFile', token, filename), from_=user):
+        """
+        Handles requests to delete a file, Returns true if successful and false if some other user is accessing the file
+        """
         output('client: received deleteFile: filename={0}'.format(filename))
         messageId = getNewMessageId()
         send(('deleteFile', self, filename, messageId), to=namenodes)
         await(some(received(('deleteFile', _filename, _messageId, _))))
         result = setof(r, received(('deleteFile', _filename, _messageId, r)))
         r = Utils.getOneFromSet(result)
-        output("client: received result of deleteFile from namenode for file: ",filename, 'result= ',r)
+        output("client: received result of deleteFile from namenode for file: ", filename, 'result= ', r)
         send(('deleteFile', token, filename), to=user)
