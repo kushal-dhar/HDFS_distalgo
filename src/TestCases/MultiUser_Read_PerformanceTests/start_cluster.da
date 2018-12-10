@@ -44,7 +44,7 @@ def main():
     start(users)
 
     time_taken = []
-    numUsers = [1, 5, 10, 15]
+    numUsers = [1, 10, 20, 30, 40, 50, 60]
     msgNumber = 0
     msgWaitDict = dict()
     for nUsers in numUsers:
@@ -65,7 +65,8 @@ def main():
         output("received done from all users for %d nUsers: " % (nUsers))
     output("\ntime_taken: ", time_taken)
     plt.scatter(numUsers, time_taken)
-    plt.plot(numUsers, time_taken)
+    plt.plot(numUsers, time_taken, label = "Filesize: 2KB")
+    plt.legend()
     plt.title("Multiple User Read Time")
     plt.xlabel("Number of users")
     plt.ylabel("Time(in seconds)")
