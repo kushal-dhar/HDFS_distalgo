@@ -2,8 +2,6 @@ NameNode = import_da('NameNode')
 DataNode = import_da('DataNode')
 Client = import_da('Client')
 User = import_da('User')
-#User2 = import_da('User2')
-Client2 = import_da('Client2')
 
 import Config
 import os
@@ -29,7 +27,7 @@ def main():
 
 
     # Start datanodes
-    datanodes = new(DataNode.DataNode, num=4, at=Config.DATANODE_LOCATION)
+    datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
     output("project data path= ", Config.PROJECT_DATA_PATH)
     count = 1
     for datanode in datanodes:
@@ -41,129 +39,57 @@ def main():
     start(datanodes)
 
 
-    # Datanode failure check
-    """
-    time.sleep(10)
-    output("sending terminate msg to datanode0")
-    datanodeList = list(datanodes)
-    send(('kill'), to=datanodeList[0])
-
-    time.sleep(60)
-    output("sending terminate msg to datanode1")
-    send(('kill'), to=datanodeList[1])
-
-    time.sleep(60)
-    """
-    """
-    datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
-
-    count = 1
-    for datanode in datanodes:
-        storageDir = os.path.join(Config.PROJECT_DATA_PATH, str(count))
-        if not os.path.isdir(storageDir):
-            os.makedirs(storageDir)
-        setup(datanode, args=(namenodes, storageDir))
-        count += 1
-    start(datanodes)
-    
-    while True:
-        if await(some(received(('start_datanodes', _, _)))):
-            #startDatanodes(namenodes, 3)
-            output('message received')
-    """
-
-    """
-    # Start clients
-    clients = new(Client2.Client, num=1, at=Config.CLIENT_LOCATION)
-    for client in clients:
-        setup(client, args=(namenodes,))
-    start(clients)
 
     # Start users
-    users = new(User2.User, num=1, at=Config.USER_LOCATION)
-    #client_list = list(clients)
+    users = new(User.User, num=1, at=Config.USER_LOCATION)
     for user in users:
-        setup(user, args=("namenode.pickle",))
+        setup(user, args=("namenode.pickle", 0, True, self))
     start(users)
 
 
-    # Start clients
-    clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
-    for client in clients:
-        setup(client, args=(namenodes,))
-    start(clients)
-    """
+    time_taken = [[], []]
+    numReaders = [1,10,15,25]
+    counter = 1
+    for iteration in range(2):
+        # In first iteration, all 3 datanodes are available
+        for nReaders in numReaders:
+            start_time = datetime.datetime.now().timestamp()
+            users = new(User.User, num=nReaders, at=Config.USER_LOCATION)
+            messageDict = {}
+            for user in users:
+                messageDict[user] = counter
+                setup(user, args=("namenode.pickle", counter, False, self))
+                counter += 1
+            start(users)
+            for user in messageDict:
+                await(some(received(('done', messageDict[user]))))
+            #await(some(received(('done',_writes))))
+            end_time = datetime.datetime.now().timestamp()
+            time_taken[iteration].append(end_time-start_time)
+            output(time_taken[iteration])
 
-    # Start users
-    # users = new(User.User, num=1, at=Config.USER_LOCATION)
-    # for user in users:
-    #     setup(user, args=("namenode.pickle", 0, True, self))
-    # start(users)
+        # terminate 2 datanodes
+        if iteration == 0:
+            time.sleep(10)
+            output("sending terminate msg to datanode0")
+            datanodeList = list(datanodes)
+            send(('kill'), to=datanodeList[0])
 
-    time_taken = []
-    writes = [10, 100, 200, 500, 1000]
-    for iteration in writes:
-        start_time = datetime.datetime.now().timestamp()
-        users = new(User.User, num=1, at=Config.USER_LOCATION)
-        for user in users:
-            setup(user, args=("namenode.pickle", iteration, False, self))
-        start(users)
-        await(some(received(('done',_iteration))))
-        end_time = datetime.datetime.now().timestamp()
-        time_taken.append(end_time-start_time)
-        output(time_taken)
-        output("received done from user for %d iteration: "%(iteration))
-    for i in range(len(writes)):
-        writes[i] = writes[i]*2
-    plt.scatter(writes, time_taken)
-    plt.plot(writes, time_taken)
-    plt.title("Single User Write Time")
-    plt.xlabel("write(in KB)")
+            time.sleep(60)
+            output("sending terminate msg to datanode1")
+            send(('kill'), to=datanodeList[1])
+
+            time.sleep(60)
+
+
+
+    output("time taken: ", time_taken)
+    plt.scatter(numReaders, time_taken[0])
+    plt.plot(numReaders, time_taken[0], label='No datanode failures')
+    plt.scatter(numReaders, time_taken[1])
+    plt.plot(numReaders, time_taken[1], label='Two out of three datanodes fail, one datanode active')
+    plt.title("Read performance comparison with and without datanode failures")
+    plt.xlabel("Number of Readers")
     plt.ylabel("Time(in seconds)")
+    plt.legend()
     plt.show()
-
-    """
-    users = new(User2.User, num=1, at=Config.USER_LOCATION)
-    for user in users:
-        setup(user, args=("namenode.pickle",counter, True))
-        counter += 1
-    start(users)
-    """
-
-    """
-    users2 = new(User2.User, num=1, at=Config.USER_LOCATION)
-    for user in users2:
-        setup(user, args=(client_list[1],))
-    start(users2)
-
-    with open("user.pickle", 'wb') as fid:
-        pickle.dump(users, fid)
-    """
-
-
-    #time.sleep(15)
-    #output("sending terminate msg to datanode0")
-    #datanodeList = list(datanodes)
-    #send(('kill'), to=datanodeList[0])
-
-    #time.sleep(20)
-    #output("sending terminate msg to datanode1")
-    #send(('kill'), to=datanodeList[1])
-
-    # TODO: Garbage code below. clean it
-    await(some(received(('start_datanodes', _, _))))
-
-    output('received message to kill existing datandoes')
-    send(('kill'), to=datanodes)
-
-    datanodes = new(DataNode.DataNode, num=3, at=Config.DATANODE_LOCATION)
-    count = 1
-    for datanode in datanodes:
-        storageDir = os.path.join(Config.PROJECT_DATA_PATH, str(count))
-        if not os.path.isdir(storageDir):
-            os.makedirs(storageDir)
-        setup(datanode, args=(namenodes, storageDir))
-        count += 1
-    start(datanodes)
-
-    await(received(('kill')))
