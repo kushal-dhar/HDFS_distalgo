@@ -1,0 +1,7 @@
+This test is to check what happens when you try to delete a file which other users try to write into the same file
+
+1)We create a file f1
+2)A user tries to write into a file
+3)Another user(User2.da) tries to delete the file
+
+Expected result: The file will not be deleted and false is returned since other user is trying to write into the file.
