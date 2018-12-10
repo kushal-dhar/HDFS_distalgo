@@ -6,6 +6,7 @@ import Config
 import time
 import Utils
 import sys
+import random
 
 
 """
@@ -139,9 +140,9 @@ class Client(process):
         output('received listFiles result from namenode ', r)
         send(('listFiles', token, r), to=user)
 
-   """
+    """
 	Handles request to aquire lease for the user before it attempts to read or write,Returns true if successfull,else returns false
-   """
+    """
     def receive(msg=('openFile', mode, token, filename), from_=user):
         output('client: received openFile: filename=', filename, ', token=', token)
         messageId = getNewMessageId()
@@ -227,7 +228,8 @@ class Client(process):
                 data = (False, b'')
                 send(('readFile', token, filename, mblockNumber, nbytes, data), to=user)
                 return
-            datanodeToContact = datanodesToContact[0]
+            # Choose one datanode at random to read
+            datanodeToContact = random.sample(datanodesToContact, 1)[0]
             messageId = getNewMessageId()
             send(('readFile_c2d', self, filenameAtDatanode, nbytes, messageId), to=datanodeToContact)
 
