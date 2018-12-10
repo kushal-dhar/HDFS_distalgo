@@ -7,14 +7,15 @@ from os.path import expanduser
 DATABASE_NAME = 'hdfs'
 
 home = expanduser("~")
-home += '/datanodes/'
+data_dir = home + '/datanodes/'
 
-try:
-    os.rmdir(home)
-except:
-    pass
+def cleanDirectoryBeforeStart():
+    try:
+        shutil.rmtree(data_dir)
+    except:
+        pass
 
-PROJECT_DATA_PATH = home
+PROJECT_DATA_PATH = data_dir
 
 NAMENODE_LOCATION = 'nnode'
 
