@@ -138,6 +138,9 @@ class User(process):
         token = getToken()
         send(('listFiles', token), to=clients)
         await(some(received(('listFiles', _token, _))))
+        filesList = setof(r, received(('listFiles', _token, r)))
+        returnValue = Utils.getOneFromSet(filesList)
+        return returnValue
 
 
     def run():
@@ -151,26 +154,48 @@ class User(process):
         start(clients)
 
         output("User started: ", self)
-
+        output('create file f1')
         createFile('f1')
+
+        output('call listfiles')
+        files = listFiles()
+        output('listFiles output: ', files)
+
+        output('call openFile(\'f1\', \'w\')')
         openFile('f1','w')
         string = b'Hello HDFS. A tool to store data in equal sized blocks in a distributed manner :).'
         output("writing to f1: ",string)
         writeFile('f1', string)
+        output('write to f1 complete')
+
+        output('call closeFile(\'f1\')')
         closeFile('f1')
 
+        output('call openFile(\'f1\', \'r\')')
         openFile('f1', 'r')
+
+
+        output('call readFile(\'f1\', 100)')
         read_data = readFile('f1', 100)
-        output('read data: ', read_data)
+        output('read result: ', read_data)
+
+        output('call closeFile(\'f1\')')
         closeFile('f1')
 
+        output('call opnFile(\'f1\', \'w\')')
         openFile('f1', 'w')
+
+
         string2 = b'second append operation to file'
+        output("writing to f1: ", string2)
         writeFile('f1', string2)
         closeFile('f1')
 
+        output('call openFile(\'f1\', \'r\')')
         openFile('f1', 'r')
         read_data = readFile('f1', 150)
-        output('read data after 2nd append: ', read_data)
+        output('read result after 2nd append: ', read_data)
+
+        output('call closeFile(\'f1\')')
         closeFile('f1')
 
