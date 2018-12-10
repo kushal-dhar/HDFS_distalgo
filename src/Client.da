@@ -48,6 +48,18 @@ Users interact with HDFS by sending messages to Client
 
 
 class Client(process):
+    """
+    Implementation of section II.C of paper
+    User applications access the file system using the HDFS
+    client, a code library that exports the HDFS file system interface.
+
+    The user application generally
+    does not need to know that file system metadata and storage are
+    on different servers, or that blocks have multiple replicas.
+
+
+
+    """
 
     def setup(namenodes):
         """
@@ -181,6 +193,26 @@ class Client(process):
         the  NameNode  for  the  list  of  DataNodes  that  host  replicas  of
         the blocks of the file. It then contacts a DataNode directly and
         requests the transfer of the desired block
+
+        From section II.A
+        An HDFS client wanting to
+        read a file first contacts the NameNode for the locations of data
+        blocks comprising the file and then reads block contents from
+        the DataNode closest to the client
+
+        From section II.C
+        When an application reads a file, the HDFS client first asks
+        the NameNode for the list of DataNodes that host replicas of
+        the blocks of the file. It then contacts a DataNode directly and
+        requests the transfer of the desired block
+
+        From section III.A
+        An application adds data to HDFS by creating a new file
+        and writing the data to it. After the file is closed, the bytes written
+        cannot be altered or removed except that new data can be
+        added to the file by reopening the file for append. HDFS implements
+        a single-writer, multiple-reader model
+
         """
         output('client: received readFile: filename={0}, blockNumber={1}, nbytes={2}, token={3}'.format(filename, mblockNumber, nbytes, token))
 
@@ -241,6 +273,23 @@ class Client(process):
         from  node -to-node  and  sends  the  data.  When  the  first  block  is
         filled,  the  client  requests  new DataNodes  to  be  chosen  to  host
         replicas of the next block.
+
+        From section II.A
+        When writing data, the client
+        requests the NameNode to nominate a suite of three
+        DataNodes to host the block replicas. The client then writes
+        data to the DataNodes in a pipeline fashion
+
+        From section II.C
+        When a client writes,
+        it first asks the NameNode to choose DataNodes to host replicas
+        of the first block of the file. The client organizes a pipeline
+        from node-to-node and sends the data. When the first block is
+        filled, the client requests new DataNodes to be chosen to host
+        replicas of the next block. A new pipeline is organized, and the
+        client sends the further bytes of the file. Each choice of
+        DataNodes is likely to be different.
+
         """
         output('client: received appendFile: filename={0}, token={1}, data={2}'.format(filename, token, data))
         dataWriteIndex = 0
