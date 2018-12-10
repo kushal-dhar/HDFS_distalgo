@@ -95,31 +95,36 @@ def main():
     """
 
     # Start users
-    # users = new(User.User, num=1, at=Config.USER_LOCATION)
-    # for user in users:
-    #     setup(user, args=("namenode.pickle", 0, True, self))
-    # start(users)
-
-    time_taken = []
-    writes = [1, 100, 200, 400, 600]
-    for iteration in writes:
-        start_time = datetime.datetime.now().timestamp()
+    reads = [10, 100, 250, 500, 750]
+    newReads = []
+    for read in reads:
+        newReads.append(12 * read)
+    for i in [1,2,3,4]:
         users = new(User.User, num=1, at=Config.USER_LOCATION)
         for user in users:
-            setup(user, args=("namenode.pickle", iteration, False, self))
+            setup(user, args=("namenode.pickle", 0, i, True, self))
         start(users)
-        await(some(received(('done',_iteration))))
-        end_time = datetime.datetime.now().timestamp()
-        time_taken.append(end_time-start_time)
-        output(time_taken)
-        output("received done from user for %d iteration: "%(iteration))
-    #for i in range(len(writes)):
-    #    writes[i] = writes[i]*2
-    plt.scatter(writes, time_taken)
-    plt.plot(writes, time_taken)
-    plt.title("Single User Write Time")
-    plt.xlabel("write(in KB)")
-    plt.ylabel("Time(in seconds)")
+
+        time_taken = []
+        for iteration in reads:
+            start_time = datetime.datetime.now().timestamp()
+            users = new(User.User, num=1, at=Config.USER_LOCATION)
+            for user in users:
+                setup(user, args=("namenode.pickle", iteration, i, False, self))
+            start(users)
+            await(some(received(('done',_iteration, _i))))
+            end_time = datetime.datetime.now().timestamp()
+            time_taken.append(end_time-start_time)
+            output("received done from user for %d iteration: "%(iteration))
+
+        output("\ntime_taken: ",time_taken)
+        plt.scatter(newReads, time_taken)
+        title = "Chunk size: " + str(i) + " KB"
+        plt.plot(newReads, time_taken,label=title)
+        plt.legend()
+        plt.title("Single User Read Time")
+        plt.xlabel("Read sizes(in KB)")
+        plt.ylabel("Time(in seconds)")
     plt.show()
 
     """
