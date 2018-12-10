@@ -1,7 +1,6 @@
-'''
-from Block import BlockInfo
-from DataNode import DataNode
-'''
+"""
+Old Client process. No longer used in code.
+"""
 
 import Config
 import time
