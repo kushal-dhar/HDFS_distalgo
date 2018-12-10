@@ -24,15 +24,31 @@ class DataNodeHeartbeat(Thread):
             send(('heartbeat', self.datanode), to=self.namenode)
             time.sleep(self.interval)
 '''
-"""
-	During normal operation DataNodes send heartbeats to the NameNode  to  confirm  that  the  DataNode  is  operating  and  the 
-	block  replicas  it  hosts  are  available
-"""
+
 class DataNodeHeartbeat(process):
+    """
+    During normal operation DataNodes send heartbeats to the
+    NameNode to confirm that the DataNode is operating and the
+    block replicas it hosts are available. The default heartbeat interval
+    is three seconds
+    """
+
     def setup(datanode, namenode, interval=Config.DATANODE_HEARTBEAT_INTERVAL):
+        """
+        setup requires pid of datanode for which this process is sending heartbeat
+        setup also requires pid of namenode where heartbeat is to be sent
+        interval: time difference between 2 heartbeat messages
+        """
         pass
 
     def run():
+        """
+        During startup each DataNode connects to the NameNode
+        and performs a handshake. The purpose of the handshake is to
+        verify the namespace ID and the software version of the
+        DataNode. If either does not match that of the NameNode the
+        DataNode automatically shuts down.
+        """
         output('start heartbeat process for datanode: ', datanode)
         while True:
             #output('sending heartbeat', self)
@@ -47,6 +63,9 @@ class DataNodeHeartbeat(process):
 
 
     def receive(msg=('kill_hbprocess')):
+        """
+        Handle terminate message
+        """
         output('datanodeHeartbeatProcess: received kill')
         exit(0)
 
@@ -55,31 +74,33 @@ class DataNodeHeartbeat(process):
 
 class DataNode(process):
 #class DataNode():
+    """
+    Implementation of section II.B of paper.
 
 
     """
-    def __init__():
-        nameNode = None
-        # The namespace for which this datanode is storing data
-        # A datanode can only store data for one namespace
-        namespaceID = None
-        namespaceIDPath = None
-        # Used by namenode to uniquely identify datanodes
-        storageID = None
-        storageIDPath = None
-    """ 
 
     def setup(namenodes, storageDir):
         # Declare all class variables with self. here to reference them without self throughout
+        # Used by namenode to uniquely identify datanodes
         self.datanodeId = None
         self.heartbeatThread = None
         self.heartbeatProcess = None
     
-    """
-	During  startup  each  DataNode  connects  to  the  NameNode and performs a 
-	handshake
-    """
+
     def run():
+        """
+        During  startup  each  DataNode  connects  to  the  NameNode and performs a
+        handshake
+
+        After the handshake the DataNode registers with the
+        NameNode. DataNodes persistently store their unique storage
+        IDs. The storage ID is an internal identifier of the DataNode,
+        which makes it recognizable even if it is restarted with a different
+        IP address or port. The storage ID is assigned to the DataNode
+        when it registers with the NameNode for the first time and never changes after that.
+
+        """
         output('datanode started: ', self)
         output('supplied namenode: ', namenodes)
 
@@ -90,7 +111,7 @@ class DataNode(process):
         output('registered successfully with namenode')
 
         self.heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_LOCATION)
-        #self.heartbeatProcess = new(DataNodeHeartbeat, num=1, at=Config.DATANODE_HEARTBEAT_LOCATION)
+
         for hbp in self.heartbeatProcess:
             setup(hbp, args=(self, namenodes))
         start(self.heartbeatProcess)
@@ -105,12 +126,15 @@ class DataNode(process):
         """
         Performs handshake and verification with namenode.
         After this passes, this datanode is available for storing data blocks.
+        Performed in run()
         """
         pass
     
     def getNamespaceId():
         """
-        Returns the namespace id for which this datanode is storing data
+        Returns the namespace id for which this datanode is storing data.
+        In current implementation, there is only one namespace.
+        If multiple namespaces need to be supported, ask namenode to provide namespaceId during first handshake
         """
         pass
     
@@ -118,6 +142,7 @@ class DataNode(process):
         """
         Sets the namespace id for which this datanode is storing data.
         This id is stored persistently on datanode.
+        In current implementation, there is only one namespace.
         """
         pass
 
@@ -125,7 +150,7 @@ class DataNode(process):
         """
         Returns the storage id for which this datanode is storing data
         """
-        pass
+        return self.datanodeId
         
     def setStorageId(id):
         """
@@ -139,21 +164,26 @@ class DataNode(process):
         Sends block report to namenode.
         Block reports are sent periodically to namenode.
         Block reports contain list of blocks of files this datanode is storing.
+        To be implemented when namenode failures are supported.
         """
         pass
         
     def sendHeartBeat():
         """
         Sends heartbeat to namenode to signal that this datanode is alive
+        Implemented in Heartbeat process
         """
         pass
  
-    """
-       The  storage  ID  is  assigned to  the
-       DataNode  when  it  registers  with  the  NameNode  for  the  first 
-       time and never changes after that  
-    """
+
     def readDatanodeId():
+        """
+        The  storage  ID  is  assigned to  the
+        DataNode  when  it  registers  with  the  NameNode  for  the  first 
+        time and never changes after that.
+        This method searches for storage Id file on disk.
+        If found, it reads storage id from the file.
+        """
         filepath = os.path.join(storageDir, Config.DATANODE_ID_FILE)
         if not os.path.isfile(filepath):
             return None
@@ -164,6 +194,12 @@ class DataNode(process):
         return datanodeId
 
     def writeDatanodeId():
+        """
+        The  storage  ID  is  assigned to  the
+        DataNode  when  it  registers  with  the  NameNode  for  the  first
+        time and never changes after that.
+        This method writes storageId persistently to disk.
+        """
         filepath = os.path.join(storageDir, Config.DATANODE_ID_FILE)
         fid = open(filepath, 'w')
         # Possible issue: str(None)
@@ -174,6 +210,11 @@ class DataNode(process):
     
     
     def receive(msg=('datanode_added', proposedId)):
+        """
+        Namanode sends this message when datanode handshake is complete.
+        If namenode assigns a storage Id to this datanode, this datanode
+        writes the storage id persistenyly to disk
+        """
         if proposedId != datanodeId:
             datanodeId = proposedId
             writeDatanodeId()
@@ -181,32 +222,39 @@ class DataNode(process):
 
 
     def sendHeartbeat():
+        """
+        send heartbeat message to namenode
+        This functionalty is really implemented in DatannodeHeartbeatProcess
+        """
         send(('heartbeat', self), to=namenodes)
 
 
-    """
-        reads  block  contents  from the  DataNode
-    """
+
     def receive(msg=('readFile_c2d', client, filename, nbytes, messageId)):
+        """
+        Handles client's read request.
+        Read the block from disk and replies with the contents of the file
+        """
         output('datanode: received readFile filename={0}, nbytes={1}'.format(filename, nbytes))
-        # TODO : change mode to 'rb'
-        #fid = open(filename, 'r')
+
+        # Convert relative filename to absolute path on disk
         filepath = os.path.join(self.storageDir, filename)
         fid = open(filepath, 'rb')
-        # TODO : change to data = fid.read(nbytes)
-        #data = fid.read()
         data = fid.read(nbytes)
 
         output('datanode: output of readFile filename={0}, nbytes={1}: data={2}'.format(filename, nbytes, data))
         send(('readFile_d2c', filename, nbytes, messageId, data), to=client)
 
-    """The client then pipelines data to the chosen DataNodes, which eventually confirm the creation of 
-       the block replicas to the NameNode 
-    """
+
     def receive(msg=('appendFile_c2d', filename, blockName, blockNumber, data, datanodes_to_write, messageIdTuple, idx, client), from_=sender):
+        """
+        The client then pipelines data to the chosen DataNodes, which eventually confirm the creation of
+        the block replicas to the NameNode.
+        This method implementes the pipelined write mechanism described in paper.
+        """
         filepath = os.path.join(self.storageDir, blockName)
         output('received appendFile for filename={0}, filepath={1}'.format(filename, filepath))
-        # TODO- change to wb afterwards
+
         fid = open(filepath, 'ab')
         fid.write(data)
         fid.close()
@@ -216,17 +264,23 @@ class DataNode(process):
         else:
             # Pipeline fashion
             send(('appendFile_c2d', filename, blockName, blockNumber, data, datanodes_to_write, messageIdTuple, idx+1, client), to=datanodes_to_write[idx+1])
-        # TODO - incorporate block number in these messages
+
         bytesWritten = len(data)
+        # Notify namenode
         send(('appendFile_d2n', filename, blockNumber, bytesWritten, self.datanodeId), to=namenodes)
+        # Notify client
         send(('appendFile_d2c', messageIdTuple[idx]), to=client)
 
 
-    """
-     If  the  number  of  existing  replicas  is  one,  HDFS Namenode
-     places the next replica on a different datanode
-    """
+
     def receive(msg=('replicateBlock_n2d', filename, blockNumber, blockFileName, destination_datanode)):
+        """
+        If  the  number  of  existing  replicas  is  one,  HDFS Namenode
+        places the next replica on a different datanode
+        This function is called when a datanode receives a message from namenode asking it to replicate the specified
+        block to another datanode. This is called when replication factor of a block needs to be increased.
+        In this function, the datanode reads the specified block and sends the data to destination datanode for replication
+        """
         output("datanode: receive replicate: block={0}, file={1}, to={2}".format(blockNumber, filename, destination_datanode))
         blockFileNameToRead = os.path.join(self.storageDir, blockFileName)
         fid = open(blockFileNameToRead, 'rb')
@@ -235,23 +289,30 @@ class DataNode(process):
         # replicate it on another datanode
         send(('replicateBlock_d2d', filename, blockNumber, blockFileName, data), to=destination_datanode)
 
-    """
-       A datanode replicates the block on another datanode to ensure the repliction factor is 2.This would be useful
-       when a datanode goes down.
-    """
+
     def receive(msg=('replicateBlock_d2d', filename, blockNumber, blockFileName, data)):
+        """
+        A datanode replicates the block on another datanode to ensure the repliction factor is 2.This would be useful
+        when a datanode goes down.
+        This function is called when a datanode receives a replicateBlock message from another datanode with filename and data
+        The recipient datanode writes the provided data to the provided file.
+        Then notifies the namenode that this datanode now successfully hosts specified block
+        and namenode can send read requsts for this block in future.
+        """
         storing_filename = os.path.join(self.storageDir, blockFileName)
         output("datanode: replicateBlock_d2d: block={0}, file={1}, at={2}".format(blockNumber, filename, storing_filename))
         fid = open(storing_filename, 'wb')
         fid.write(data)
         fid.close()
         bytesWritten = len(data)
+
         send(('appendFile_d2n', filename, blockNumber, bytesWritten, self.datanodeId), to=namenodes)
 
-    """
-        Delete block of  file
-    """
+
     def receive(msg=('deleteBlock', blockname)):
+        """
+        Deletes block of file from disk
+        """
         filepath = os.path.join(self.storageDir, blockname)
         output('received deleteblock for block: %s from NameNode' %(blockname))
         if os.path.exists(filepath):
@@ -261,36 +322,13 @@ class DataNode(process):
 
 
     def receive(msg=('kill')):
+        """
+        Handles terminate message.
+        Sends terimante message to heartbeat process. Then exits.
+        """
         output('handler: received kill message. hbp=', self.heartbeatProcess)
         # Send kill message to heartbeat process!
         send(('kill_hbprocess'), to=self.heartbeatProcess)
         exit(0)
 
-"""
-Datanode interacts with HDFS Client using DatanodeClient
-"""
-class DatanodeClient:
-    
-    def __init__():
-        pass
-    
-    def readBlock(filepath):
-        """
-        Reads the bytes from the specified file.
-        Also returns the checksum to check for possible corruption
-        """
-        pass
-    
-    def writeBlock(filepath, data):
-        """
-        Writes the data to specified file.
-        Updates access time, modified time and checksum for the accessed block
-        """
-        pass
-    
-    def writeDataPipelined(filepath, data, nextDatanode):
-        """
-        Writes the data in pipelined fashion.
-        Writes the data to local file and also sends the data to next node in the pipeline
-        """
-        pass
+

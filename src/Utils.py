@@ -1,4 +1,6 @@
-
+"""
+Common utulities used by all other files
+"""
 def getOneFromSet(items):
     if items == None or len(items) == 0:
         return None

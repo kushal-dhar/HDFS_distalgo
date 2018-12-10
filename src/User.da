@@ -9,11 +9,15 @@ import os
 
 """
 User process in HDFS cluster.
-Users interact with HDFS by sending messages to HDFS Client
+Users interact with HDFS by sending messages to HDFS Client.
+Those methods are implemented in this file and createFile, openFile, readFile, writeFile, closeFile, deleteFile API's are implemented.
 """
 class User(process):
 
-    def setup(pickleFile, counter, doWrite, startcluster):
+    def setup(pickleFile):
+        """
+        setup needs pid object of namenode. It is supplied as pickle file
+        """
         self.pickleFile = pickleFile
         self.msgId = 0
         self.tokenString = 'token'
@@ -28,12 +32,21 @@ class User(process):
 
 
     def getToken():
+        """
+        Generates a unique token everytime it is called
+        :return:
+        """
         token = tokenString + str(msgId)
         msgId += 1
         return token
 
 
     def createFile(filename):
+        """
+        CreateFile API
+        Create a file named `filename` in HDFS
+        :return: True/False
+        """
         token = getToken()
         send(('createFile', token, filename), to=clients)
         await(some(received(('createFile', _token, _filename, _))))
@@ -43,6 +56,11 @@ class User(process):
 
 
     def openFile(filename, mode):
+        """
+        OpenFile API
+        Opens `filename` in specified mode ('r' or 'w')
+        :return: True/False representing if open operation was successful
+        """
         if mode == 'r':
             filemode = Config.R_LEASE
         elif mode == 'w':
@@ -56,6 +74,12 @@ class User(process):
 
 
     def readFile(filename, nbytes):
+        """
+        ReadFile API
+        Reads `nbytes` bytes from `filename`
+        :return: (Result, data) Result: True/False representing if operation was successful,
+        data is the actual data read from the file
+        """
         token = getToken()
         send(('readFile', token, filename, 0, nbytes), to=clients)
         await(some(received(('readFile', _token, _filename, 0, nbytes, _))))
@@ -65,6 +89,11 @@ class User(process):
 
 
     def writeFile(filename, buf):
+        """
+        WriteFile API
+        Appends `buf` to `filename`
+        :return: True/False representing if the operation was successful
+        """
         token = getToken()
         send(('appendFile', token, filename, buf),to=clients)
         await(some(received(('appendFile', _token, _filename, _))))
@@ -74,6 +103,11 @@ class User(process):
 
 
     def closeFile(filename):
+        """
+        CloseFile API
+        Calls close on an opened file
+        :return: True/False representing if the operation was successful
+        """
         token = getToken()
         send(('closeFile', filemode, token, filename), to=clients)
         await(some(received(('closeFile', _filemode, _token, _filename, _))))
@@ -86,12 +120,21 @@ class User(process):
 
 
     def deleteFile(filename):
+        """
+        DeleteFile API
+        Deletes `filename` from HDFS
+        :return: True/False representing if the operation was successful
+        """
         token = getToken()
         send(('deleteFile', token, filename), to=clients)
         await(some(received(('deleteFile', _token, _filename))))
 
 
     def listFiles():
+        """
+        ListFiles API
+        Returns a tuple of files present in HDFS
+        """
         token = getToken()
         send(('listFiles', token), to=clients)
         await(some(received(('listFiles', _token, _))))
@@ -100,30 +143,34 @@ class User(process):
     def run():
         with open(pickleFile, "rb") as fid:
             nameNodes = pickle.load(fid)
-        # Start clients
+
+        # Start HDFS client for the user
         clients = new(Client.Client, num=1, at=Config.CLIENT_LOCATION)
         for client in clients:
             setup(client, args=(nameNodes,))
         start(clients)
 
-        output("User started: ", counter)
-        if doWrite:
-            createFile('f1')
-            openFile('f1','w')
-            filepath = os.getcwd()
-            filepath = os.path.join('dummyFile.txt')
-            file = open(filepath, "rb")
-            string = file.read()
-            output("msg: ",string)
-            writeFile('f1', string)
-            closeFile('f1')
+        output("User started: ", self)
 
+        createFile('f1')
+        openFile('f1','w')
+        string = b'Hello HDFS. A tool to store data in equal sized blocks in a distributed manner :).'
+        output("writing to f1: ",string)
+        writeFile('f1', string)
+        closeFile('f1')
 
-        else:
+        openFile('f1', 'r')
+        read_data = readFile('f1', 100)
+        output('read data: ', read_data)
+        closeFile('f1')
 
-            openFile('f1', 'r')
-            content = readFile('f1', 1000)
-            output('read content: ', content)
+        openFile('f1', 'w')
+        string2 = b'second append operation to file'
+        writeFile('f1', string2)
+        closeFile('f1')
 
+        openFile('f1', 'r')
+        read_data = readFile('f1', 150)
+        output('read data after 2nd append: ', read_data)
+        closeFile('f1')
 
-        send(('done',counter), to=startcluster)

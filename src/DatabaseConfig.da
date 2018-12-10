@@ -1,4 +1,7 @@
-
+"""
+Configuration file when MySQL Adapter is used at NameNode.
+Not used in current implementation
+"""
 SHOW_DATABASES_CMD = "SHOW DATABASES"
 CREATE_DB_CMD = "CREATE DATABASE {0}"
 DROP_DB_CMD = "DROP DATABASE {0}"
