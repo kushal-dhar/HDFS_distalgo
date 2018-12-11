@@ -1,0 +1,13 @@
+This test is to check the performance of the system when multiple Users are trying to write simultaneously to the same file.
+
+1)Create multiple users
+2)Create a single file and a string of size 2KB
+3)In all user, open the same file in write mode.
+4)Once any user acquires acquires a lease on the file, he starts appending to the file.
+5)Every user closes the file once his write is done, so that the lease can be granted to the next user in the request queue.
+6)Plot the time required to perform write on the same file with different number of users (1 user, 5 users, 15, 20, 25 users).
+
+Expected result: To perform write on a file, each user has to grant exclusive lease on the file before starting to write and only 1
+                 user at a time can write to a file. Since while 1 user is writing on a file, all the other requesting users has to 
+                 wait for the lease, the time required to perform write on the same file should increase as the number of users 
+                 performing write increases.

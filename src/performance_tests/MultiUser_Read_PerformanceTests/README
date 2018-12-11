@@ -1,0 +1,9 @@
+This test is to check the performance of the system when multiple Users are reading simultaneously from the same file.
+
+1)Create multiple users
+2)Create a file and have all the users perform read on the same file.
+3)Run the same tests for the following number of users: 1 user, 10 users, 20 users, 30 users, 40 users, 50 users, 60 users
+3)After each iteration (iteration of 1 user, 10 users, ...) plot the time required by the set of users to read from the same file.
+
+Expected result: Since each user is granted read lease immediately for reading on the same file, the time required to perform read
+                 shouldn't be too high and should increase linearly with the number of users.
