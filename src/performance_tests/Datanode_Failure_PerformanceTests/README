@@ -1,0 +1,10 @@
+Test how read performance on a single file with multiple readers varies when datanodes fail.
+
+3 Datanodes, Replication Factor = 2
+
+1) Vary number of readers for a file 'f1' and measure total time taken for reading a file
+2) Terminate one datanode and wait for namenode to detect the failure. NameNode replicates blocks stored on failed datanode to other two datenodes. Now, both these datanodes store all blocks of the file.
+3) Terminate one more datanode and wait for namenode to detect the failure. Now, there is only one datanode reamining in the system.
+4) Vary number of readers for a file and measure total time taken for reading a file when there is only one datanode in the ssytem.
+
+Expected result: Time taken in step 4 is more than time taken in step 1.

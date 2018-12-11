@@ -1,0 +1,9 @@
+This test is to see what happens if a writer is killed without finishing the write(i.e without calling closeFile)
+
+
+1)Create many users.
+2)Create a file and make many users write to the same file.
+3)Randomly kill one writing user.
+
+Expected result: The file-system gives 'hard_limit' amount of time for the user  to come up and complete its write, 
+if the NameNode does not receive heartbeat for hard_limit time, the lease is revoked and rest of the Users complete their tasks.

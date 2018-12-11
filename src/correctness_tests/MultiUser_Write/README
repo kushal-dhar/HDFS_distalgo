@@ -1,0 +1,11 @@
+This check is to test the handling of concurrent wrie requests
+
+1)Create a few Users
+2)Create a file f1 and make all the users write on the same file
+3) Every user writes a number multiple times. The reason for this is, in the expected output should have all the occurences of the number grouped together
+
+
+
+
+Expected result: A string of numbers with all the occurences of a number grouped together to ensure two writes did not overlap
+Example User1 writes 111111 User 2 writes 22222 User3 writes 33333.Expected result should be 1111112222233333 and no overlap such as 1112221112233333

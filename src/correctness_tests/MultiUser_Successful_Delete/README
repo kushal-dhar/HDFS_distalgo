@@ -1,0 +1,7 @@
+This test is to check if the file successfully gets deleted or not in a multi-user scenario.
+
+1)Create multiple users
+2)Create a file and have the users perform read/write operations on the file.
+3)After the last user finishes using the file, call deleteFile
+
+Expected result: THE file gets deleted succesfully since no user has a lease on the file.

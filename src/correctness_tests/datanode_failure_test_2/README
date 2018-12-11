@@ -1,0 +1,13 @@
+Checks the following scenario for datanode failure:
+
+1) Write data to a file
+2) Read data from the file
+- Assert that the read data is same as written data
+3) Kill two datanodes out of 3
+4) Allow namenode to detect the failure of these 2 failed datanodes
+5) Try to read the file
+- It will fail with high probability and succeed with a small probability
+6) Resurrect one of the failed datanode
+7) Allow namenode to re-register this newly resurrected datanode
+8) Read the data from file again
+- Assert that the read data is same as written data
