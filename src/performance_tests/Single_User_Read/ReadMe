@@ -1,0 +1,7 @@
+This test is done to check the performance of a single user when it reads data of different sizes from a file.
+
+1)Create a user
+2)Create a file and write data into the file
+3)Do reads of different sizes from the file and record performance
+
+Since for a single User, reads are done sequentially, the read time should increase with the increase in number of bytes read

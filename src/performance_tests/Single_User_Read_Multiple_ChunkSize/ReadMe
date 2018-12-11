@@ -1,0 +1,11 @@
+This test is done with single user with multiple chunk sizes to identify how
+chunk sizes determine the read time.
+
+1)Create the user.
+2)Create a file and write some content into it
+3)Make multiple read requests of different sizes from a user for a fixed chunk size
+4)Repeat the expermiment with a different chunk size.
+
+Expected result : To read large files, bigger chunk sizes should be used
+as otherwise cient has to send multiple read request and has to await on each
+read result. 

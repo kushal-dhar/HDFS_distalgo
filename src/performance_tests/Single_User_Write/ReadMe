@@ -1,0 +1,8 @@
+This test is done to check the performance of a single user when it writes data of different sizes into a file.
+
+1)Create a user
+2)Create a file
+3)Do writes  of different sizes into the file and record performance
+
+The write time should increase linearly with the number of bytes written 
+keeping the chunk size constant
