@@ -9,7 +9,4 @@ This test is to check the performance of the system when multiple Users are tryi
 7)Perform the same experiment with multiple users writing the same string on single file and plot the write time for the same
 8)Compare the time taken by multiple users to write on the same file v/s writing on different file in the plot.
 
-Expected result: To perform write on a file, each user has to grant exclusive lease on the file before starting to write and only 1
-                 user at a time can write to a file. On the other hand to write the same string to different files, the user can be granted
-                 lease immediately as no other user will be working on the file. Thus the time required to write the same string by multiple
-                 users on different file should be very low when compared to the time required to perform write of the same size on same file.
+Expected result: To perform write on a file, each user has to grant exclusive lease on the file before starting to write and only 1 user at a time can write to a file. On the other hand to write the same string to different files, the user can be granted lease immediately as no other user will be working on the file. Thus the time required to write the same string by multiple users on different file should be very low when compared to the time required to perform write of the same size on same file.
