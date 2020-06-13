@@ -1,6 +1,3 @@
-# Implementing and improving HDFS in DistAlgo
-<https://sites.google.com/a/stonybrook.edu/sbcs535/projects/hdfs-distalgo>
-
 There are 5 distalgo nodes in the software.
 Start these nodes in order using the following commands in 5 terminals:
 1) start_cluster: python3 -m da -n snode  start_cluster.da
